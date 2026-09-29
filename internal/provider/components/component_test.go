@@ -407,14 +407,12 @@ func TestExtractDependency_NullObject(t *testing.T) {
 	}
 }
 
+// An unknown dependency is an error, not an absent one: dropping it would
+// silently lose the ordering constraint.
 func TestExtractDependency_UnknownObject(t *testing.T) {
 	obj := types.ObjectUnknown(ComponentAttrTypes)
-	id, funcErr := ExtractDependency(obj, "NetworkAndCompute.IaaS.AwsVpc")
-	if funcErr != nil {
-		t.Fatalf("unexpected error: %s", funcErr.Text)
-	}
-	if id != "" {
-		t.Errorf("expected empty string for unknown object, got %q", id)
+	if _, funcErr := ExtractDependency(obj, "NetworkAndCompute.IaaS.AwsVpc"); funcErr == nil {
+		t.Fatal("expected an error for an unknown dependency")
 	}
 }
 

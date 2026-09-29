@@ -53,7 +53,7 @@ resource "fc_fractal" "microservice" {
   - `display_name` (String, Optional) Human-readable name.
   - `description` (String, Optional) Component description.
   - `version` (String, Optional) Component version.
-  - `parameters` (Map of String, Optional) Configuration parameters.
+  - `parameters` (Map of String, Optional) Configuration parameters. See [Parameter and setting values](#parameter-and-setting-values).
   - `dependencies_ids` (List of String, Optional) IDs of components this depends on.
   - `links` (List of Object, Optional) Links to other components, each with `component_id` (String) and `settings` (Map of String).
 
@@ -65,3 +65,8 @@ resource "fc_fractal" "microservice" {
 ### Read-Only
 
 - `created_at` (String) Creation timestamp.
+
+
+### Parameter and setting values
+
+Parameter and link-setting values are strings. A value that is a JSON object or array, such as the output of `jsonencode()` or `secret_ref()`, is sent to the API as that JSON; every other value is sent as the string it is. So a parameter the catalog types as a list or an object is written with `jsonencode([...])`, and a plain-text value that happens to be valid JSON object or array text is sent as JSON too. A refresh keeps your text as long as the API returns the same JSON, whatever its key order or spacing.

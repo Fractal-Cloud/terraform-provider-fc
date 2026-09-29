@@ -51,11 +51,18 @@ func Int64Attr(attrs map[string]attr.Value, name string) (value int64, ok bool, 
 	if !present || v.IsNull() {
 		return 0, false, nil
 	}
+	if v.IsUnknown() {
+		return 0, false, function.NewFuncError(name + " must be known when the function is called")
+	}
 	switch n := v.(type) {
 	case basetypes.Int64Value:
 		return n.ValueInt64(), true, nil
 	case basetypes.NumberValue:
-		i, accuracy := n.ValueBigFloat().Int64()
+		f := n.ValueBigFloat()
+		if f == nil {
+			return 0, false, function.NewFuncError(name + " must be a number")
+		}
+		i, accuracy := f.Int64()
 		if accuracy != big.Exact {
 			return 0, false, function.NewFuncError(name + " must be a whole number")
 		}
@@ -72,6 +79,9 @@ func StringAttr(attrs map[string]attr.Value, name string) (value string, ok bool
 	v, present := attrs[name]
 	if !present || v.IsNull() {
 		return "", false, nil
+	}
+	if v.IsUnknown() {
+		return "", false, function.NewFuncError(name + " must be known when the function is called")
 	}
 	s, isString := v.(basetypes.StringValue)
 	if !isString {

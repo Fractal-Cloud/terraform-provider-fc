@@ -28,6 +28,17 @@ func priorLinks(ctx context.Context, links types.List) []priorLink {
 	return out
 }
 
+// priorLinksByTarget groups prior link settings by target, in order, so the
+// n-th link to a target is matched with the n-th prior link to it however the
+// API orders links.
+func priorLinksByTarget(links []priorLink) map[string][]map[string]string {
+	out := make(map[string][]map[string]string, len(links))
+	for _, l := range links {
+		out[l.componentId] = append(out[l.componentId], l.settings)
+	}
+	return out
+}
+
 func stringMap(ctx context.Context, m types.Map) map[string]string {
 	if m.IsNull() || m.IsUnknown() {
 		return nil

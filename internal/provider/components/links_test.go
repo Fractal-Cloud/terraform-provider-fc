@@ -182,3 +182,20 @@ func TestLinksFromDynamic_StructuredSettingsBecomeJSON(t *testing.T) {
 		t.Errorf("scope = %s, want %s", got["scope"], want)
 	}
 }
+
+func TestLinksFromDynamic_RejectsUnknownSettings(t *testing.T) {
+	link := objectOf(t, map[string]attr.Value{"target": linkTarget(t, "a"), "settings": types.MapUnknown(types.StringType)})
+	if _, err := LinksFromDynamic(tupleOf(t, link)); err == nil || !strings.Contains(err.Text, "must be known") {
+		t.Errorf("error = %v, want an unknown-settings error", err)
+	}
+}
+
+func TestDynamicObjectAttrs_RejectUnknown(t *testing.T) {
+	attrs := map[string]attr.Value{"port": types.NumberUnknown(), "cidr": types.StringUnknown()}
+	if _, _, err := Int64Attr(attrs, "port"); err == nil {
+		t.Error("Int64Attr must reject an unknown number")
+	}
+	if _, _, err := StringAttr(attrs, "cidr"); err == nil {
+		t.Error("StringAttr must reject an unknown string")
+	}
+}

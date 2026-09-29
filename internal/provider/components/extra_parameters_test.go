@@ -42,3 +42,9 @@ func TestWithExtraParameters_RejectsKeySetByAttribute(t *testing.T) {
 		t.Errorf("err = %v, want a conflict error", err)
 	}
 }
+
+func TestWithExtraParameters_RejectsUnknown(t *testing.T) {
+	if _, err := WithExtraParameters(nil, types.MapUnknown(types.StringType)); err == nil {
+		t.Error("expected an error for unknown extra_parameters")
+	}
+}

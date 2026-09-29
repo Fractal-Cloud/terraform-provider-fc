@@ -97,6 +97,9 @@ func linkSettings(v attr.Value) (map[string]string, *function.FuncError) {
 	if v == nil || v.IsNull() {
 		return nil, nil
 	}
+	if v.IsUnknown() {
+		return nil, function.NewFuncError("settings must be known when the function is called")
+	}
 
 	var entries map[string]attr.Value
 	switch s := v.(type) {

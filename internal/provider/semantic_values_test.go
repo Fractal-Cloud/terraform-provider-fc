@@ -17,6 +17,9 @@ func TestSameJSON(t *testing.T) {
 	}{
 		{"x", "x", true},
 		{"8080", "8080.0", false},
+		{`{"ratio":1.0,"n":1e3}`, `{"n":1000,"ratio":1}`, true},
+		{`[0.1]`, `[0.10]`, true},
+		{`[0.1]`, `[0.2]`, false},
 		{`{"b":1,"a":[1,2]}`, `{"a":[1,2],"b":1}`, true},
 		{`[{"protocol":"tcp","fromPort":443}]`, `[ { "fromPort": 443, "protocol": "tcp" } ]`, true},
 		{`{"a":1}`, `{"a":2}`, false},
@@ -68,5 +71,37 @@ func TestMapBlueprintToState_KeepsConfiguredJSONText(t *testing.T) {
 	links := priorLinks(ctx, comps[0].Links)
 	if links[0].settings["token"] != secret {
 		t.Errorf("link token = %s, want the configured text %s", links[0].settings["token"], secret)
+	}
+}
+
+// Links are matched to prior state by target, so a reordered response keeps
+// the configured text.
+func TestMapBlueprintToState_MatchesLinksByTarget(t *testing.T) {
+	ctx := context.Background()
+	scope := `{"path":"/raw","recursive":true}`
+	resorted := `{"recursive":true,"path":"/raw"}`
+	bp := func(links ...fractalCloud.ComponentLink) *fractalCloud.Blueprint {
+		return &fractalCloud.Blueprint{Components: []fractalCloud.Component{{Id: "job", Type: "T", Links: links}}}
+	}
+
+	model := &BlueprintModel{Components: types.ListNull(basetypes.ObjectType{AttrTypes: componentAttrTypes})}
+	var diags Diagnostics
+	mapBlueprintToState(ctx, bp(
+		fractalCloud.ComponentLink{ComponentId: "lake", Settings: map[string]string{"scope": scope}},
+		fractalCloud.ComponentLink{ComponentId: "topic", Settings: map[string]string{"access": "subscribe"}},
+	), model, &diags)
+	mapBlueprintToState(ctx, bp(
+		fractalCloud.ComponentLink{ComponentId: "topic", Settings: map[string]string{"access": "subscribe"}},
+		fractalCloud.ComponentLink{ComponentId: "lake", Settings: map[string]string{"scope": resorted}},
+	), model, &diags)
+	if diags.HasError() {
+		t.Fatalf("unexpected diagnostics: %v", diags.Errors())
+	}
+
+	var comps []ComponentModel
+	model.Components.ElementsAs(ctx, &comps, false)
+	links := priorLinks(ctx, comps[0].Links)
+	if links[1].componentId != "lake" || links[1].settings["scope"] != scope {
+		t.Errorf("lake link = %+v, want the configured scope text %s", links[1], scope)
 	}
 }

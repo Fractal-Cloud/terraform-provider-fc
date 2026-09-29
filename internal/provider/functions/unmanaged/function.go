@@ -69,6 +69,10 @@ func (f *Function) Run(ctx context.Context, req function.RunRequest, resp *funct
 		return
 	}
 
+	if cfg.Secret.IsUnknown() {
+		resp.Error = function.NewArgumentFuncError(0, "secret must be known when the function is called")
+		return
+	}
 	if cfg.Secret.IsNull() {
 		resp.Error = function.NewArgumentFuncError(0, "secret is required")
 		return

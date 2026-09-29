@@ -110,6 +110,12 @@ func (f *Function) Run(ctx context.Context, req function.RunRequest, resp *funct
 		return
 	}
 	attrs := config.Attributes()
+	for _, name := range []string{"id", "display_name", "description"} {
+		if v, ok := attrs[name]; ok && v.IsUnknown() {
+			resp.Error = function.NewArgumentFuncError(0, name+" must be known when the function is called")
+			return
+		}
+	}
 
 	params := map[string]string{}
 	for _, a := range f.spec.Attributes {

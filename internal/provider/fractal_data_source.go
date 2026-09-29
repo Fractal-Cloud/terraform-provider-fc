@@ -229,10 +229,12 @@ func mapBlueprintToState(
 		diags.Append(d...)
 
 		links := make([]LinkModel, len(component.Links))
+		priorByTarget := priorLinksByTarget(priorLinkSettings[component.Id])
 		for j, link := range component.Links {
 			linkSettings := link.Settings
-			if prior := priorLinkSettings[component.Id]; j < len(prior) && prior[j].componentId == link.ComponentId {
-				linkSettings = preferPriorValues(prior[j].settings, linkSettings)
+			if prior := priorByTarget[link.ComponentId]; len(prior) > 0 {
+				linkSettings = preferPriorValues(prior[0], linkSettings)
+				priorByTarget[link.ComponentId] = prior[1:]
 			}
 			if linkSettings == nil {
 				linkSettings = map[string]string{}

@@ -3,6 +3,7 @@ package provider
 import (
 	"bytes"
 	"encoding/json"
+	"math/big"
 	"reflect"
 )
 
@@ -43,7 +44,33 @@ func sameJSON(a, b string) bool {
 	if !ok {
 		return false
 	}
-	return reflect.DeepEqual(av, bv)
+	return reflect.DeepEqual(canonicalNumbers(av), canonicalNumbers(bv))
+}
+
+// canonicalNumbers replaces every JSON number with its exact rational value,
+// so 1, 1.0 and 1e0 compare equal.
+func canonicalNumbers(v any) any {
+	switch t := v.(type) {
+	case json.Number:
+		if r, ok := new(big.Rat).SetString(t.String()); ok {
+			return r.RatString()
+		}
+		return t.String()
+	case []any:
+		out := make([]any, len(t))
+		for i, e := range t {
+			out[i] = canonicalNumbers(e)
+		}
+		return out
+	case map[string]any:
+		out := make(map[string]any, len(t))
+		for k, e := range t {
+			out[k] = canonicalNumbers(e)
+		}
+		return out
+	default:
+		return v
+	}
 }
 
 func structuredJSON(s string) (any, bool) {

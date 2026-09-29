@@ -197,8 +197,11 @@ func ValidateComponentType(obj types.Object, expectedType string) *function.Func
 // ExtractDependency extracts a component's ID after validating its type.
 // Returns the ID and any error. If the object is null/unknown, returns empty string and no error.
 func ExtractDependency(obj types.Object, expectedType string) (string, *function.FuncError) {
-	if obj.IsNull() || obj.IsUnknown() {
+	if obj.IsNull() {
 		return "", nil
+	}
+	if obj.IsUnknown() {
+		return "", function.NewFuncError("dependency must be known when the function is called")
 	}
 	if err := ValidateComponentType(obj, expectedType); err != nil {
 		return "", err
@@ -241,7 +244,10 @@ var ParametersAttrType = types.MapType{ElemType: types.StringType}
 // rather than a silent override, because the attribute usually validates or
 // translates the value.
 func WithExtraParameters(derived map[string]string, extra types.Map) (map[string]string, *function.FuncError) {
-	if extra.IsNull() || extra.IsUnknown() || len(extra.Elements()) == 0 {
+	if extra.IsUnknown() {
+		return nil, function.NewFuncError("extra_parameters must be known when the function is called")
+	}
+	if extra.IsNull() || len(extra.Elements()) == 0 {
 		return derived, nil
 	}
 	merged := make(map[string]string, len(derived)+len(extra.Elements()))

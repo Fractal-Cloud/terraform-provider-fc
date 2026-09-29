@@ -35,7 +35,7 @@ Fractal Cloud is a platform engineering solution that delivers secure, compliant
 
 The provider includes 58 blueprint component builder functions organized by infrastructure domain and delivery model, plus `secret_ref` for referencing environment secrets. Function names follow the full component coordinate: `provider::fc::{domain}_{delivery_model}_{component}`. These functions create component objects for use in a fractal's `components` list. Dependencies between components are expressed as direct object references (type-checked at plan time) rather than string IDs.
 
-Only `id` and the attributes a function's documentation marks as required need to be set; every other attribute may be omitted. Every function also accepts `extra_parameters`, a map of offer-specific parameters with no attribute of their own.
+Only `id` and the attributes a function's documentation marks as required need to be set; every other attribute may be omitted. Every function also accepts `extra_parameters`, a map of offer-specific parameters with no attribute of their own. A parameter value that is a JSON object or array string (from `jsonencode()` or `secret_ref()`) is sent as JSON; any other value is sent as a string.
 
 <details>
 <summary>NetworkAndCompute (7 functions)</summary>
