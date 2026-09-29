@@ -277,4 +277,3 @@ func TestWorkloadFunction_Run_WithDepsAndLinks(t *testing.T) {
 		t.Errorf("expected SG link target %q, got %q", "sg-1", link1.Attributes()["component_id"].(types.String).ValueString())
 	}
 }
-

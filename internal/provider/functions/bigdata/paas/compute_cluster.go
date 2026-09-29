@@ -45,8 +45,8 @@ func (f *BigdataPaasComputeClusterFunction) Definition(_ context.Context, _ func
 					"max_workers":              types.Int64Type,
 					"auto_termination_minutes": types.Int64Type,
 					"spark_conf":               types.MapType{ElemType: types.StringType},
-					"pypi_libraries":  types.ListType{ElemType: types.StringType},
-					"maven_libraries": types.ListType{ElemType: types.StringType},
+					"pypi_libraries":           types.ListType{ElemType: types.StringType},
+					"maven_libraries":          types.ListType{ElemType: types.StringType},
 					"links": types.ListType{
 						ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes},
 					},

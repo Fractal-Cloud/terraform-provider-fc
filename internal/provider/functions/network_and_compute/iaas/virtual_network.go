@@ -34,7 +34,7 @@ func (f *VirtualNetworkFunction) Definition(_ context.Context, _ function.Defini
 					"id":           types.StringType,
 					"display_name": types.StringType,
 					"description":  types.StringType,
-					"cidr_block": types.StringType,
+					"cidr_block":   types.StringType,
 					"links": types.ListType{
 						ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes},
 					},
@@ -49,8 +49,8 @@ type virtualNetworkConfig struct {
 	Id          types.String `tfsdk:"id"`
 	DisplayName types.String `tfsdk:"display_name"`
 	Description types.String `tfsdk:"description"`
-	CidrBlock types.String `tfsdk:"cidr_block"`
-	Links     types.List   `tfsdk:"links"`
+	CidrBlock   types.String `tfsdk:"cidr_block"`
+	Links       types.List   `tfsdk:"links"`
 }
 
 func (f *VirtualNetworkFunction) Run(ctx context.Context, req function.RunRequest, resp *function.RunResponse) {

@@ -32,10 +32,10 @@ func (f *BigdataPaasMlExperimentFunction) Definition(_ context.Context, _ functi
 				Name:        "config",
 				Description: "ML Experiment configuration",
 				AttributeTypes: map[string]attr.Type{
-					"id":                types.StringType,
-					"display_name":      types.StringType,
-					"description":       types.StringType,
-					"platform":          components.ComponentObjectType,
+					"id":              types.StringType,
+					"display_name":    types.StringType,
+					"description":     types.StringType,
+					"platform":        components.ComponentObjectType,
 					"experiment_name": types.StringType,
 				},
 			},
@@ -45,10 +45,10 @@ func (f *BigdataPaasMlExperimentFunction) Definition(_ context.Context, _ functi
 }
 
 type bigdataPaasMlExperimentConfig struct {
-	Id               types.String `tfsdk:"id"`
-	DisplayName      types.String `tfsdk:"display_name"`
-	Description      types.String `tfsdk:"description"`
-	Platform         types.Object `tfsdk:"platform"`
+	Id             types.String `tfsdk:"id"`
+	DisplayName    types.String `tfsdk:"display_name"`
+	Description    types.String `tfsdk:"description"`
+	Platform       types.Object `tfsdk:"platform"`
 	ExperimentName types.String `tfsdk:"experiment_name"`
 }
 
