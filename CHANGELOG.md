@@ -1,4 +1,4 @@
-## 2.0.0 (Unreleased)
+## 2.0.0 (September 29, 2026)
 
 BREAKING CHANGES:
 
@@ -10,6 +10,7 @@ BREAKING CHANGES:
 * `network_and_compute_iaas_security_group`: `ingress_rules[*].source_component_id` is removed; link the source component to the target instead. `source_cidr` is required on every rule.
 * `storage_paas_relational_dbms`: `engine_version` is required.
 * `links` is a dynamic list: `settings` may be omitted, and setting values may be numbers, bools, lists or objects.
+* A parameter or link-setting string that is a JSON object or array (it starts with `{` or `[` and parses) is sent to the API as that JSON instead of as a string. This is what makes list and object parameters and `secret_ref()` work. A value meant as literal text that happens to parse, such as `"[1]"`, is affected too.
 
 FEATURES:
 
