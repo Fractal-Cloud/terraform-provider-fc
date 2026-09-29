@@ -45,3 +45,4 @@ storage_paas_relational_database(config object) object
 | `collation` | String | No | Database collation (e.g. `"en_US.UTF-8"`). |
 | `charset` | String | No | Database character set (e.g. `"UTF8"`). |
 | `dbms` | Component Object | No | A Relational DBMS component to add as a dependency. Must be a component returned by `storage_paas_relational_dbms`. |
+| `extra_parameters` | Map of String | No | Additional parameters for keys the chosen offer reads that have no attribute here. A key an attribute already sets is rejected. JSON object or array strings (e.g. from `jsonencode()` or `secret_ref()`) are sent as JSON. |

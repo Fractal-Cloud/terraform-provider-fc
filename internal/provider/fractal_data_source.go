@@ -197,19 +197,24 @@ func mapBlueprintToState(
 ) {
 	// Extract prior state component values so we can preserve fields the API doesn't round-trip.
 	priorVersions := make(map[string]types.String)
+	priorParameters := make(map[string]map[string]string)
+	priorLinkSettings := make(map[string][]priorLink)
 	if !model.Components.IsNull() && !model.Components.IsUnknown() {
 		var priorComponents []ComponentModel
 		d := model.Components.ElementsAs(ctx, &priorComponents, false)
 		if !d.HasError() {
 			for _, pc := range priorComponents {
-				priorVersions[pc.Id.ValueString()] = pc.Version
+				id := pc.Id.ValueString()
+				priorVersions[id] = pc.Version
+				priorParameters[id] = stringMap(ctx, pc.Parameters)
+				priorLinkSettings[id] = priorLinks(ctx, pc.Links)
 			}
 		}
 	}
 
 	components := make([]ComponentModel, len(blueprint.Components))
 	for i, component := range blueprint.Components {
-		params := component.Parameters
+		params := preferPriorValues(priorParameters[component.Id], component.Parameters)
 		if params == nil {
 			params = map[string]string{}
 		}
@@ -224,8 +229,13 @@ func mapBlueprintToState(
 		diags.Append(d...)
 
 		links := make([]LinkModel, len(component.Links))
+		priorByTarget := priorLinksByTarget(priorLinkSettings[component.Id])
 		for j, link := range component.Links {
 			linkSettings := link.Settings
+			if prior := priorByTarget[link.ComponentId]; len(prior) > 0 {
+				linkSettings = preferPriorValues(prior[0], linkSettings)
+				priorByTarget[link.ComponentId] = prior[1:]
+			}
 			if linkSettings == nil {
 				linkSettings = map[string]string{}
 			}

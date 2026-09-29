@@ -31,15 +31,14 @@ func (f *LoadBalancerFunction) Definition(_ context.Context, _ function.Definiti
 			function.ObjectParameter{
 				Name:        "config",
 				Description: "LoadBalancer configuration",
-				AttributeTypes: map[string]attr.Type{
-					"id":           types.StringType,
-					"display_name": types.StringType,
-					"description":  types.StringType,
-					"links": types.ListType{
-						ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes},
-					},
-					"security_groups": types.ListType{ElemType: components.ComponentObjectType},
-				},
+				CustomType: components.NewConfigObjectType(map[string]attr.Type{
+					"id":               types.StringType,
+					"display_name":     types.StringType,
+					"description":      types.StringType,
+					"links":            components.LinksAttrType,
+					"security_groups":  types.ListType{ElemType: components.ComponentObjectType},
+					"extra_parameters": components.ParametersAttrType,
+				}, "id"),
 			},
 		},
 		Return: components.ComponentReturn(),
@@ -47,11 +46,12 @@ func (f *LoadBalancerFunction) Definition(_ context.Context, _ function.Definiti
 }
 
 type loadBalancerConfig struct {
-	Id             types.String `tfsdk:"id"`
-	DisplayName    types.String `tfsdk:"display_name"`
-	Description    types.String `tfsdk:"description"`
-	Links          types.List   `tfsdk:"links"`
-	SecurityGroups types.List   `tfsdk:"security_groups"`
+	Id              types.String  `tfsdk:"id"`
+	DisplayName     types.String  `tfsdk:"display_name"`
+	Description     types.String  `tfsdk:"description"`
+	Links           types.Dynamic `tfsdk:"links"`
+	SecurityGroups  types.List    `tfsdk:"security_groups"`
+	ExtraParameters types.Map     `tfsdk:"extra_parameters"`
 }
 
 func (f *LoadBalancerFunction) Run(ctx context.Context, req function.RunRequest, resp *function.RunResponse) {
@@ -64,20 +64,12 @@ func (f *LoadBalancerFunction) Run(ctx context.Context, req function.RunRequest,
 	// Build links from generic links and SG memberships
 	var links []components.ComponentLink
 
-	if !config.Links.IsNull() && !config.Links.IsUnknown() {
-		var genericLinks []components.GenericLinkConfig
-		diags := config.Links.ElementsAs(ctx, &genericLinks, false)
-		if diags.HasError() {
-			resp.Error = function.NewFuncError("failed to parse links")
-			return
-		}
-		resolved, funcErr := components.GenericLinksToComponentLinks(genericLinks)
-		if funcErr != nil {
-			resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
-			return
-		}
-		links = append(links, resolved...)
+	resolved, funcErr := components.LinksFromDynamic(config.Links)
+	if funcErr != nil {
+		resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
+		return
 	}
+	links = append(links, resolved...)
 
 	if !config.SecurityGroups.IsNull() && !config.SecurityGroups.IsUnknown() {
 		var sgObjects []types.Object
@@ -94,13 +86,19 @@ func (f *LoadBalancerFunction) Run(ctx context.Context, req function.RunRequest,
 		links = append(links, sgLinks...)
 	}
 
+	parameters, funcErr := components.WithExtraParameters(nil, config.ExtraParameters)
+	if funcErr != nil {
+		resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
+		return
+	}
+
 	result, funcErr := components.BuildComponent(
 		config.Id.ValueString(),
 		"NetworkAndCompute.IaaS.LoadBalancer",
 		components.OptionalString(config.DisplayName),
 		components.OptionalString(config.Description),
 		types.StringNull(),
-		nil,
+		parameters,
 		nil,
 		links,
 	)

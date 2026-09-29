@@ -1,7 +1,7 @@
 data "fc_fractal" "existing_fractal" {
   bounded_context_id = data.fc_personal_bounded_context.existing_bounded_context.id
-  name    = "existing-fractal"
-  version = "1.0"
+  name               = "existing-fractal"
+  version            = "1.0"
 }
 
 # IaaS Fractal with VPC, subnets, security groups, and VMs linked together.
@@ -16,11 +16,11 @@ locals {
   })
 
   public_subnet = provider::fc::network_and_compute_iaas_subnet({
-    id                = "public-subnet"
-    display_name      = "Public Subnet"
-    description       = "Public-facing subnet"
-    cidr_block        = "10.0.1.0/24"
-    vpc               = local.main_vpc # type-checked dependency on VPC
+    id           = "public-subnet"
+    display_name = "Public Subnet"
+    description  = "Public-facing subnet"
+    cidr_block   = "10.0.1.0/24"
+    vpc          = local.main_vpc # type-checked dependency on VPC
   })
 
   web_sg = provider::fc::network_and_compute_iaas_security_group({
@@ -49,11 +49,11 @@ locals {
     id              = "web-server"
     display_name    = "Web Server"
     description     = "Frontend web server"
-    subnet          = local.public_subnet   # type-checked dependency on subnet
-    security_groups = [local.web_sg]        # type-checked SG membership link
+    subnet          = local.public_subnet # type-checked dependency on subnet
+    security_groups = [local.web_sg]      # type-checked SG membership link
     links = [
       {
-        target   = local.api_server
+        target = local.api_server
         settings = {
           fromPort = "8080"
         }
@@ -64,9 +64,9 @@ locals {
 
 resource "fc_fractal" "iaas_fractal" {
   bounded_context_id = data.fc_personal_bounded_context.existing_bounded_context.id
-  name        = "basic-iaas"
-  version     = "1.0"
-  description = "IaaS Fractal with network, security, and compute"
+  name               = "basic-iaas"
+  version            = "1.0"
+  description        = "IaaS Fractal with network, security, and compute"
 
   components = [
     local.main_vpc,
@@ -95,7 +95,7 @@ locals {
     container_port  = 5432
     cpu             = "1024"
     memory          = "2048"
-    desired_count   = 1
+    replicas        = 1
     platform        = local.k8s_cluster
     subnet          = null
     links           = []
@@ -111,13 +111,13 @@ locals {
     container_port  = 8080
     cpu             = "512"
     memory          = "1024"
-    desired_count   = 2
+    replicas        = 2
     platform        = local.k8s_cluster # type-checked dependency on platform
     subnet          = null
     security_groups = []
     links = [
       {
-        target   = local.db_service
+        target = local.db_service
         settings = {
           fromPort = "5432"
           protocol = "tcp"
@@ -129,9 +129,9 @@ locals {
 
 resource "fc_fractal" "container_fractal" {
   bounded_context_id = data.fc_personal_bounded_context.existing_bounded_context.id
-  name        = "microservice"
-  version     = "1.0"
-  description = "Containerized Microservice Fractal"
+  name               = "microservice"
+  version            = "1.0"
+  description        = "Containerized Microservice Fractal"
 
   components = [
     local.k8s_cluster,

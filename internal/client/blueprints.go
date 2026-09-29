@@ -1,6 +1,7 @@
 package fractalCloud
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -41,8 +42,12 @@ func (c *Client) GetBlueprint(ctx context.Context, id FractalId) (*Blueprint, er
 		return nil, nil
 	}
 
+	// UseNumber keeps numeric parameters as their literal text ("1.10" stays
+	// "1.10") instead of round-tripping through float64.
 	blueprint := BlueprintInternal{}
-	if err := json.Unmarshal(body, &blueprint); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber()
+	if err := decoder.Decode(&blueprint); err != nil {
 		return nil, fmt.Errorf("decoding fractal %q response: %w", id.ToString(), err)
 	}
 

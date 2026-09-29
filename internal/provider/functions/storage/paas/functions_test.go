@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"fractal.cloud/terraform-provider-fc/internal/provider/components"
+	"fractal.cloud/terraform-provider-fc/internal/provider/functions/functiontest"
 )
 
 func buildTestComponent(t *testing.T, id, componentType string) types.Object {
@@ -24,7 +25,7 @@ func runFunction(t *testing.T, f function.Function, args []attr.Value) *function
 	t.Helper()
 	ctx := context.Background()
 	req := function.RunRequest{
-		Arguments: function.NewArgumentsData(args),
+		Arguments: function.NewArgumentsData(functiontest.Complete(t, f, args)),
 	}
 	resp := &function.RunResponse{
 		Result: function.NewResultData(types.ObjectNull(components.ComponentAttrTypes)),
@@ -503,4 +504,13 @@ func TestGraphDatabaseFunction_Run(t *testing.T) {
 	if deps.IsNull() || deps.Elements()[0].(types.String).ValueString() != "graph-1" {
 		t.Errorf("expected dependency %q", "graph-1")
 	}
+}
+
+func TestStoragePaasRelationalDbmsFunction_Run_VersionAndAge(t *testing.T) {
+	c := functiontest.Component(t, functiontest.Run(t, NewStoragePaasRelationalDbmsFunction(), functiontest.Object(t, map[string]attr.Value{
+		"id":             types.StringValue("pg"),
+		"engine_version": types.StringValue("16"),
+		"age":            types.BoolValue(true),
+	})))
+	functiontest.ExpectParameters(t, c, map[string]string{"version": "16", "age": "true"})
 }

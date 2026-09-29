@@ -28,31 +28,25 @@ func (f *WorkloadFunction) Definition(_ context.Context, _ function.DefinitionRe
 		Summary: "Creates a FaaS Workload blueprint component",
 		Description: "Builds a FaaS Workload (serverless function) component with the correct type and parameters for use in a fractal's components list. " +
 			"Subnet is a component object reference with type validation. " +
+			"runtime and handler are required; handler is also written as entryPoint for Cloud Functions. " +
 			"Use links to define runtime relationships to other components, and security_groups for SG membership.",
 		Parameters: []function.Parameter{
 			function.ObjectParameter{
 				Name:        "config",
 				Description: "FaaS Workload configuration",
-				AttributeTypes: map[string]attr.Type{
-					"id":              types.StringType,
-					"display_name":    types.StringType,
-					"description":     types.StringType,
-					"container_image": types.StringType,
-					"container_port":  types.Int64Type,
-					"container_name":  types.StringType,
-					"cpu":             types.StringType,
-					"memory":          types.StringType,
-					"desired_count":   types.Int64Type,
-					"runtime":         types.StringType,
-					"memory_mb":       types.Int64Type,
-					"timeout_seconds": types.Int64Type,
-					"handler":         types.StringType,
-					"subnet":          components.ComponentObjectType,
-					"links": types.ListType{
-						ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes},
-					},
-					"security_groups": types.ListType{ElemType: components.ComponentObjectType},
-				},
+				CustomType: components.NewConfigObjectType(map[string]attr.Type{
+					"id":               types.StringType,
+					"display_name":     types.StringType,
+					"description":      types.StringType,
+					"runtime":          types.StringType,
+					"memory_mb":        types.Int64Type,
+					"timeout_seconds":  types.Int64Type,
+					"handler":          types.StringType,
+					"subnet":           components.ComponentObjectType,
+					"links":            components.LinksAttrType,
+					"security_groups":  types.ListType{ElemType: components.ComponentObjectType},
+					"extra_parameters": components.ParametersAttrType,
+				}, "id", "runtime", "handler"),
 			},
 		},
 		Return: components.ComponentReturn(),
@@ -60,22 +54,17 @@ func (f *WorkloadFunction) Definition(_ context.Context, _ function.DefinitionRe
 }
 
 type workloadConfig struct {
-	Id             types.String `tfsdk:"id"`
-	DisplayName    types.String `tfsdk:"display_name"`
-	Description    types.String `tfsdk:"description"`
-	ContainerImage types.String `tfsdk:"container_image"`
-	ContainerPort  types.Int64  `tfsdk:"container_port"`
-	ContainerName  types.String `tfsdk:"container_name"`
-	Cpu            types.String `tfsdk:"cpu"`
-	Memory         types.String `tfsdk:"memory"`
-	DesiredCount   types.Int64  `tfsdk:"desired_count"`
-	Runtime        types.String `tfsdk:"runtime"`
-	MemoryMb       types.Int64  `tfsdk:"memory_mb"`
-	TimeoutSeconds types.Int64  `tfsdk:"timeout_seconds"`
-	Handler        types.String `tfsdk:"handler"`
-	Subnet         types.Object `tfsdk:"subnet"`
-	Links          types.List   `tfsdk:"links"`
-	SecurityGroups types.List   `tfsdk:"security_groups"`
+	Id              types.String  `tfsdk:"id"`
+	DisplayName     types.String  `tfsdk:"display_name"`
+	Description     types.String  `tfsdk:"description"`
+	Runtime         types.String  `tfsdk:"runtime"`
+	MemoryMb        types.Int64   `tfsdk:"memory_mb"`
+	TimeoutSeconds  types.Int64   `tfsdk:"timeout_seconds"`
+	Handler         types.String  `tfsdk:"handler"`
+	Subnet          types.Object  `tfsdk:"subnet"`
+	Links           types.Dynamic `tfsdk:"links"`
+	SecurityGroups  types.List    `tfsdk:"security_groups"`
+	ExtraParameters types.Map     `tfsdk:"extra_parameters"`
 }
 
 func (f *WorkloadFunction) Run(ctx context.Context, req function.RunRequest, resp *function.RunResponse) {
@@ -87,24 +76,6 @@ func (f *WorkloadFunction) Run(ctx context.Context, req function.RunRequest, res
 
 	params := map[string]string{}
 
-	if !config.ContainerImage.IsNull() && !config.ContainerImage.IsUnknown() {
-		params["containerImage"] = config.ContainerImage.ValueString()
-	}
-	if !config.ContainerPort.IsNull() && !config.ContainerPort.IsUnknown() {
-		params["containerPort"] = fmt.Sprintf("%d", config.ContainerPort.ValueInt64())
-	}
-	if !config.ContainerName.IsNull() && !config.ContainerName.IsUnknown() {
-		params["containerName"] = config.ContainerName.ValueString()
-	}
-	if !config.Cpu.IsNull() && !config.Cpu.IsUnknown() {
-		params["cpu"] = config.Cpu.ValueString()
-	}
-	if !config.Memory.IsNull() && !config.Memory.IsUnknown() {
-		params["memory"] = config.Memory.ValueString()
-	}
-	if !config.DesiredCount.IsNull() && !config.DesiredCount.IsUnknown() {
-		params["desiredCount"] = fmt.Sprintf("%d", config.DesiredCount.ValueInt64())
-	}
 	if !config.Runtime.IsNull() && !config.Runtime.IsUnknown() {
 		params["runtime"] = config.Runtime.ValueString()
 	}
@@ -115,7 +86,9 @@ func (f *WorkloadFunction) Run(ctx context.Context, req function.RunRequest, res
 		params["timeoutSeconds"] = fmt.Sprintf("%d", config.TimeoutSeconds.ValueInt64())
 	}
 	if !config.Handler.IsNull() && !config.Handler.IsUnknown() {
+		// GCP Cloud Functions call the entry point entryPoint.
 		params["handler"] = config.Handler.ValueString()
+		params["entryPoint"] = config.Handler.ValueString()
 	}
 
 	var deps []string
@@ -131,20 +104,12 @@ func (f *WorkloadFunction) Run(ctx context.Context, req function.RunRequest, res
 
 	var links []components.ComponentLink
 
-	if !config.Links.IsNull() && !config.Links.IsUnknown() {
-		var genericLinks []components.GenericLinkConfig
-		diags := config.Links.ElementsAs(ctx, &genericLinks, false)
-		if diags.HasError() {
-			resp.Error = function.NewFuncError("failed to parse links")
-			return
-		}
-		resolved, funcErr := components.GenericLinksToComponentLinks(genericLinks)
-		if funcErr != nil {
-			resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
-			return
-		}
-		links = append(links, resolved...)
+	resolved, funcErr := components.LinksFromDynamic(config.Links)
+	if funcErr != nil {
+		resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
+		return
 	}
+	links = append(links, resolved...)
 
 	if !config.SecurityGroups.IsNull() && !config.SecurityGroups.IsUnknown() {
 		var sgObjects []types.Object
@@ -161,13 +126,19 @@ func (f *WorkloadFunction) Run(ctx context.Context, req function.RunRequest, res
 		links = append(links, sgLinks...)
 	}
 
+	parameters, funcErr := components.WithExtraParameters(params, config.ExtraParameters)
+	if funcErr != nil {
+		resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
+		return
+	}
+
 	result, funcErr := components.BuildComponent(
 		config.Id.ValueString(),
 		"CustomWorkloads.FaaS.Workload",
 		components.OptionalString(config.DisplayName),
 		components.OptionalString(config.Description),
 		types.StringNull(),
-		params,
+		parameters,
 		deps,
 		links,
 	)

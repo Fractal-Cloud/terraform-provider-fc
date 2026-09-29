@@ -39,3 +39,4 @@ storage_paas_document_database(config object) object
 | `display_name` | String | No | Human-readable name for the component. |
 | `description` | String | No | Description of the component's purpose. |
 | `dbms` | Component Object | No | The Document DBMS component to depend on. If provided, added as a dependency. |
+| `extra_parameters` | Map of String | No | Additional parameters for keys the chosen offer reads that have no attribute here. A key an attribute already sets is rejected. JSON object or array strings (e.g. from `jsonencode()` or `secret_ref()`) are sent as JSON. |

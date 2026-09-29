@@ -43,7 +43,7 @@ provider "fc" {
 
 ## Provider Functions
 
-The provider includes 46 blueprint component builder functions organized by infrastructure domain and delivery model. These functions create component objects for use in a fractal's `components` list. Dependencies between components are expressed as direct object references (type-checked at plan time) rather than string IDs.
+The provider includes 58 blueprint component builder functions organized by infrastructure domain and delivery model, plus [`secret_ref`](functions/secret_ref.md) for referencing environment secrets. Provider functions require Terraform 1.8 or later. These functions create component objects for use in a fractal's `components` list. Dependencies between components are expressed as direct object references (type-checked at plan time) rather than string IDs. Only `id` and the attributes a function marks as required need to be set.
 
 ```terraform
 locals {

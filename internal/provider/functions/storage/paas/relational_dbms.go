@@ -2,6 +2,7 @@ package paas
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/function"
@@ -24,18 +25,21 @@ func (f *StoragePaasRelationalDbmsFunction) Metadata(_ context.Context, _ functi
 
 func (f *StoragePaasRelationalDbmsFunction) Definition(_ context.Context, _ function.DefinitionRequest, resp *function.DefinitionResponse) {
 	resp.Definition = function.Definition{
-		Summary:     "Creates a Relational DBMS Platform blueprint component",
-		Description: "Builds a Relational DBMS Platform component with the correct type for use in a fractal's components list.",
+		Summary: "Creates a Relational DBMS Platform blueprint component",
+		Description: "Builds a Relational DBMS Platform component with the correct type for use in a fractal's components list. " +
+			"engine_version is required. age enables the Apache AGE graph extension (Azure; use the CaaS DBMS elsewhere).",
 		Parameters: []function.Parameter{
 			function.ObjectParameter{
 				Name:        "config",
 				Description: "Relational DBMS configuration",
-				AttributeTypes: map[string]attr.Type{
-					"id":             types.StringType,
-					"display_name":   types.StringType,
-					"description":    types.StringType,
-					"engine_version": types.StringType,
-				},
+				CustomType: components.NewConfigObjectType(map[string]attr.Type{
+					"id":               types.StringType,
+					"display_name":     types.StringType,
+					"description":      types.StringType,
+					"engine_version":   types.StringType,
+					"age":              types.BoolType,
+					"extra_parameters": components.ParametersAttrType,
+				}, "id", "engine_version"),
 			},
 		},
 		Return: components.ComponentReturn(),
@@ -43,10 +47,12 @@ func (f *StoragePaasRelationalDbmsFunction) Definition(_ context.Context, _ func
 }
 
 type storagePaasRelationalDbmsConfig struct {
-	Id            types.String `tfsdk:"id"`
-	DisplayName   types.String `tfsdk:"display_name"`
-	Description   types.String `tfsdk:"description"`
-	EngineVersion types.String `tfsdk:"engine_version"`
+	Id              types.String `tfsdk:"id"`
+	DisplayName     types.String `tfsdk:"display_name"`
+	Description     types.String `tfsdk:"description"`
+	EngineVersion   types.String `tfsdk:"engine_version"`
+	Age             types.Bool   `tfsdk:"age"`
+	ExtraParameters types.Map    `tfsdk:"extra_parameters"`
 }
 
 func (f *StoragePaasRelationalDbmsFunction) Run(ctx context.Context, req function.RunRequest, resp *function.RunResponse) {
@@ -61,6 +67,15 @@ func (f *StoragePaasRelationalDbmsFunction) Run(ctx context.Context, req functio
 	if !config.EngineVersion.IsNull() && !config.EngineVersion.IsUnknown() {
 		params["version"] = config.EngineVersion.ValueString()
 	}
+	if !config.Age.IsNull() && !config.Age.IsUnknown() {
+		params["age"] = strconv.FormatBool(config.Age.ValueBool())
+	}
+
+	parameters, funcErr := components.WithExtraParameters(params, config.ExtraParameters)
+	if funcErr != nil {
+		resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
+		return
+	}
 
 	result, funcErr := components.BuildComponent(
 		config.Id.ValueString(),
@@ -68,7 +83,7 @@ func (f *StoragePaasRelationalDbmsFunction) Run(ctx context.Context, req functio
 		components.OptionalString(config.DisplayName),
 		components.OptionalString(config.Description),
 		types.StringNull(),
-		params,
+		parameters,
 		nil,
 		nil,
 	)

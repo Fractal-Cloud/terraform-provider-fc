@@ -31,14 +31,15 @@ func (f *StoragePaasRelationalDatabaseFunction) Definition(_ context.Context, _ 
 			function.ObjectParameter{
 				Name:        "config",
 				Description: "Relational Database configuration",
-				AttributeTypes: map[string]attr.Type{
-					"id":           types.StringType,
-					"display_name": types.StringType,
-					"description":  types.StringType,
-					"collation":    types.StringType,
-					"charset":      types.StringType,
-					"dbms":         components.ComponentObjectType,
-				},
+				CustomType: components.NewConfigObjectType(map[string]attr.Type{
+					"id":               types.StringType,
+					"display_name":     types.StringType,
+					"description":      types.StringType,
+					"collation":        types.StringType,
+					"charset":          types.StringType,
+					"dbms":             components.ComponentObjectType,
+					"extra_parameters": components.ParametersAttrType,
+				}, "id"),
 			},
 		},
 		Return: components.ComponentReturn(),
@@ -46,12 +47,13 @@ func (f *StoragePaasRelationalDatabaseFunction) Definition(_ context.Context, _ 
 }
 
 type storagePaasRelationalDatabaseConfig struct {
-	Id          types.String `tfsdk:"id"`
-	DisplayName types.String `tfsdk:"display_name"`
-	Description types.String `tfsdk:"description"`
-	Collation   types.String `tfsdk:"collation"`
-	Charset     types.String `tfsdk:"charset"`
-	Dbms        types.Object `tfsdk:"dbms"`
+	Id              types.String `tfsdk:"id"`
+	DisplayName     types.String `tfsdk:"display_name"`
+	Description     types.String `tfsdk:"description"`
+	Collation       types.String `tfsdk:"collation"`
+	Charset         types.String `tfsdk:"charset"`
+	Dbms            types.Object `tfsdk:"dbms"`
+	ExtraParameters types.Map    `tfsdk:"extra_parameters"`
 }
 
 func (f *StoragePaasRelationalDatabaseFunction) Run(ctx context.Context, req function.RunRequest, resp *function.RunResponse) {
@@ -80,13 +82,19 @@ func (f *StoragePaasRelationalDatabaseFunction) Run(ctx context.Context, req fun
 		deps = append(deps, dbmsId)
 	}
 
+	parameters, funcErr := components.WithExtraParameters(params, config.ExtraParameters)
+	if funcErr != nil {
+		resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
+		return
+	}
+
 	result, funcErr := components.BuildComponent(
 		config.Id.ValueString(),
 		"Storage.PaaS.RelationalDatabase",
 		components.OptionalString(config.DisplayName),
 		components.OptionalString(config.Description),
 		types.StringNull(),
-		params,
+		parameters,
 		deps,
 		nil,
 	)

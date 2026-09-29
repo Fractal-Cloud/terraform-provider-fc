@@ -62,12 +62,13 @@ network_and_compute_iaas_virtual_machine(config object) object
 | `display_name` | String | No | Human-readable name for the component. |
 | `description` | String | No | Description of the component's purpose. |
 | `subnet` | Component Object | No | A Subnet component to add as a dependency. Must be a component returned by `network_and_compute_iaas_subnet`. |
-| `links` | List of Object | No | Runtime relationship links to other components. Each link has a `target` (component object) and optional `settings` (map of string key-value pairs). |
+| `links` | List of Object | No | Runtime relationship links to other components. Each link has a `target` (component object) and optional `settings` object. |
 | `security_groups` | List of Component Object | No | SecurityGroup components for SG membership. Each must be a component returned by `network_and_compute_iaas_security_group`. |
+| `extra_parameters` | Map of String | No | Additional parameters for keys the chosen offer reads that have no attribute here. A key an attribute already sets is rejected. JSON object or array strings (e.g. from `jsonencode()` or `secret_ref()`) are sent as JSON. |
 
 ### Link Object
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `target` | Component Object | Yes | The target component object. |
-| `settings` | Map of String | No | Arbitrary key-value settings for the link (e.g. `fromPort`, `toPort`, `protocol`). |
+| `settings` | Object | No | Settings for the link; omit it when the link needs none. Values may be strings, numbers or bools (sent as strings); a list or object value (e.g. `redirectUris = ["https://..."]`) is sent as JSON. |

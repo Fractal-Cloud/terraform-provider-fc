@@ -32,13 +32,14 @@ func (f *MessagingPaasEntityFunction) Definition(_ context.Context, _ function.D
 			function.ObjectParameter{
 				Name:        "config",
 				Description: "Entity configuration",
-				AttributeTypes: map[string]attr.Type{
+				CustomType: components.NewConfigObjectType(map[string]attr.Type{
 					"id":                      types.StringType,
 					"display_name":            types.StringType,
 					"description":             types.StringType,
 					"message_retention_hours": types.Int64Type,
 					"broker":                  components.ComponentObjectType,
-				},
+					"extra_parameters":        components.ParametersAttrType,
+				}, "id"),
 			},
 		},
 		Return: components.ComponentReturn(),
@@ -51,6 +52,7 @@ type messagingPaasEntityConfig struct {
 	Description           types.String `tfsdk:"description"`
 	MessageRetentionHours types.Int64  `tfsdk:"message_retention_hours"`
 	Broker                types.Object `tfsdk:"broker"`
+	ExtraParameters       types.Map    `tfsdk:"extra_parameters"`
 }
 
 func (f *MessagingPaasEntityFunction) Run(ctx context.Context, req function.RunRequest, resp *function.RunResponse) {
@@ -76,13 +78,19 @@ func (f *MessagingPaasEntityFunction) Run(ctx context.Context, req function.RunR
 		deps = append(deps, brokerId)
 	}
 
+	parameters, funcErr := components.WithExtraParameters(params, config.ExtraParameters)
+	if funcErr != nil {
+		resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
+		return
+	}
+
 	result, funcErr := components.BuildComponent(
 		config.Id.ValueString(),
 		"Messaging.PaaS.Entity",
 		components.OptionalString(config.DisplayName),
 		components.OptionalString(config.Description),
 		types.StringNull(),
-		params,
+		parameters,
 		deps,
 		nil,
 	)

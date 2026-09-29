@@ -2,7 +2,6 @@ package iaas
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/function"
@@ -28,28 +27,22 @@ func (f *WorkloadFunction) Definition(_ context.Context, _ function.DefinitionRe
 		Summary: "Creates an IaaS Workload blueprint component",
 		Description: "Builds an IaaS Workload component (running on VMs or bare metal) with the correct type for use in a fractal's components list. " +
 			"VM and subnet are component object references with type validation. " +
+			"Deployment settings of the chosen offer (repository, branch, SSH keys) are passed through extra_parameters. " +
 			"Use links to define runtime relationships to other components, and security_groups for SG membership.",
 		Parameters: []function.Parameter{
 			function.ObjectParameter{
 				Name:        "config",
 				Description: "IaaS Workload configuration",
-				AttributeTypes: map[string]attr.Type{
-					"id":              types.StringType,
-					"display_name":    types.StringType,
-					"description":     types.StringType,
-					"container_image": types.StringType,
-					"container_port":  types.Int64Type,
-					"container_name":  types.StringType,
-					"cpu":             types.StringType,
-					"memory":          types.StringType,
-					"desired_count":   types.Int64Type,
-					"vm":              components.ComponentObjectType,
-					"subnet":          components.ComponentObjectType,
-					"links": types.ListType{
-						ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes},
-					},
-					"security_groups": types.ListType{ElemType: components.ComponentObjectType},
-				},
+				CustomType: components.NewConfigObjectType(map[string]attr.Type{
+					"id":               types.StringType,
+					"display_name":     types.StringType,
+					"description":      types.StringType,
+					"vm":               components.ComponentObjectType,
+					"subnet":           components.ComponentObjectType,
+					"links":            components.LinksAttrType,
+					"security_groups":  types.ListType{ElemType: components.ComponentObjectType},
+					"extra_parameters": components.ParametersAttrType,
+				}, "id"),
 			},
 		},
 		Return: components.ComponentReturn(),
@@ -57,19 +50,14 @@ func (f *WorkloadFunction) Definition(_ context.Context, _ function.DefinitionRe
 }
 
 type workloadConfig struct {
-	Id             types.String `tfsdk:"id"`
-	DisplayName    types.String `tfsdk:"display_name"`
-	Description    types.String `tfsdk:"description"`
-	ContainerImage types.String `tfsdk:"container_image"`
-	ContainerPort  types.Int64  `tfsdk:"container_port"`
-	ContainerName  types.String `tfsdk:"container_name"`
-	Cpu            types.String `tfsdk:"cpu"`
-	Memory         types.String `tfsdk:"memory"`
-	DesiredCount   types.Int64  `tfsdk:"desired_count"`
-	Vm             types.Object `tfsdk:"vm"`
-	Subnet         types.Object `tfsdk:"subnet"`
-	Links          types.List   `tfsdk:"links"`
-	SecurityGroups types.List   `tfsdk:"security_groups"`
+	Id              types.String  `tfsdk:"id"`
+	DisplayName     types.String  `tfsdk:"display_name"`
+	Description     types.String  `tfsdk:"description"`
+	Vm              types.Object  `tfsdk:"vm"`
+	Subnet          types.Object  `tfsdk:"subnet"`
+	Links           types.Dynamic `tfsdk:"links"`
+	SecurityGroups  types.List    `tfsdk:"security_groups"`
+	ExtraParameters types.Map     `tfsdk:"extra_parameters"`
 }
 
 func (f *WorkloadFunction) Run(ctx context.Context, req function.RunRequest, resp *function.RunResponse) {
@@ -80,25 +68,6 @@ func (f *WorkloadFunction) Run(ctx context.Context, req function.RunRequest, res
 	}
 
 	params := map[string]string{}
-
-	if !config.ContainerImage.IsNull() && !config.ContainerImage.IsUnknown() {
-		params["containerImage"] = config.ContainerImage.ValueString()
-	}
-	if !config.ContainerPort.IsNull() && !config.ContainerPort.IsUnknown() {
-		params["containerPort"] = fmt.Sprintf("%d", config.ContainerPort.ValueInt64())
-	}
-	if !config.ContainerName.IsNull() && !config.ContainerName.IsUnknown() {
-		params["containerName"] = config.ContainerName.ValueString()
-	}
-	if !config.Cpu.IsNull() && !config.Cpu.IsUnknown() {
-		params["cpu"] = config.Cpu.ValueString()
-	}
-	if !config.Memory.IsNull() && !config.Memory.IsUnknown() {
-		params["memory"] = config.Memory.ValueString()
-	}
-	if !config.DesiredCount.IsNull() && !config.DesiredCount.IsUnknown() {
-		params["desiredCount"] = fmt.Sprintf("%d", config.DesiredCount.ValueInt64())
-	}
 
 	var deps []string
 
@@ -122,20 +91,12 @@ func (f *WorkloadFunction) Run(ctx context.Context, req function.RunRequest, res
 
 	var links []components.ComponentLink
 
-	if !config.Links.IsNull() && !config.Links.IsUnknown() {
-		var genericLinks []components.GenericLinkConfig
-		diags := config.Links.ElementsAs(ctx, &genericLinks, false)
-		if diags.HasError() {
-			resp.Error = function.NewFuncError("failed to parse links")
-			return
-		}
-		resolved, funcErr := components.GenericLinksToComponentLinks(genericLinks)
-		if funcErr != nil {
-			resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
-			return
-		}
-		links = append(links, resolved...)
+	resolved, funcErr := components.LinksFromDynamic(config.Links)
+	if funcErr != nil {
+		resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
+		return
 	}
+	links = append(links, resolved...)
 
 	if !config.SecurityGroups.IsNull() && !config.SecurityGroups.IsUnknown() {
 		var sgObjects []types.Object
@@ -152,13 +113,19 @@ func (f *WorkloadFunction) Run(ctx context.Context, req function.RunRequest, res
 		links = append(links, sgLinks...)
 	}
 
+	parameters, funcErr := components.WithExtraParameters(params, config.ExtraParameters)
+	if funcErr != nil {
+		resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
+		return
+	}
+
 	result, funcErr := components.BuildComponent(
 		config.Id.ValueString(),
 		"CustomWorkloads.IaaS.Workload",
 		components.OptionalString(config.DisplayName),
 		components.OptionalString(config.Description),
 		types.StringNull(),
-		params,
+		parameters,
 		deps,
 		links,
 	)

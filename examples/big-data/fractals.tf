@@ -26,15 +26,14 @@ locals {
     container_port  = 8080
     cpu             = "512"
     memory          = "1024"
-    desired_count   = 2
+    replicas        = 2
     platform        = local.k8s
     subnet          = null
     links = [
       {
-        target   = local.ingest_stream
+        target = local.ingest_stream
         settings = {
-          fromPort = "9092"
-          protocol = "tcp"
+          access = "publish"
         }
       }
     ]
@@ -68,6 +67,7 @@ locals {
     id           = "legacy-hadoop"
     display_name = "Legacy Hadoop"
     description  = "On-premises Hadoop cluster with historical archive data"
+    secret       = provider::fc::secret_ref("legacy-hadoop-credentials")
   })
 
   # ── Spark platform ──────────────────────────────────────────────────
@@ -77,14 +77,14 @@ locals {
     description  = "Databricks workspace for all data workloads"
     links = [
       {
-        target   = local.data_lake
+        target = local.data_lake
         settings = {
           mountName = "datalake"
           path      = "/"
         }
       },
       {
-        target   = local.legacy_hadoop
+        target = local.legacy_hadoop
         settings = {
           mountName = "legacy-archive"
           path      = "/archive"
@@ -113,7 +113,7 @@ locals {
     maven_libraries = ["org.apache.hadoop:hadoop-aws:3.3.4"]
     links = [
       {
-        target   = local.ingest_stream
+        target = local.ingest_stream
         settings = {
           consumerGroup    = "$Default"
           startingPosition = "end"
@@ -138,6 +138,9 @@ locals {
     max_retries      = 2
     existing_cluster = true
     parameters       = ["--env=prod", "--layers=silver,gold"]
+    links = [
+      { target = local.data_lake, settings = { purpose = "curated", path = "silver" } },
+    ]
   })
 
   # ── ML experiment tracking ───────────────────────────────────────────
@@ -152,9 +155,9 @@ locals {
 
 resource "fc_fractal" "data_platform" {
   bounded_context_id = data.fc_personal_bounded_context.existing_bounded_context.id
-  name        = "data-platform"
-  version     = "1.0"
-  description = "Data platform: producer → stream → Spark → data lake, with legacy archive and ML tracking"
+  name               = "data-platform"
+  version            = "1.0"
+  description        = "Data platform: producer → stream → Spark → data lake, with legacy archive and ML tracking"
 
   components = [
     local.k8s,

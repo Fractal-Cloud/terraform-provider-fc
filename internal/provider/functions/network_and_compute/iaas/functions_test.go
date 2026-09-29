@@ -3,6 +3,8 @@ package iaas
 import (
 	"context"
 	"encoding/json"
+	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -10,9 +12,17 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"fractal.cloud/terraform-provider-fc/internal/provider/components"
+	"fractal.cloud/terraform-provider-fc/internal/provider/functions/functiontest"
 )
 
 // buildTestComponent is a helper that builds a minimal component object with just id and type.
+
+// testLinkAttrTypes is the shape of one element of a function's links list.
+var testLinkAttrTypes = map[string]attr.Type{
+	"target":   components.ComponentObjectType,
+	"settings": types.MapType{ElemType: types.StringType},
+}
+
 func buildTestComponent(t *testing.T, id, componentType string) types.Object {
 	t.Helper()
 	obj, err := components.BuildComponent(id, componentType, types.StringNull(), types.StringNull(), types.StringNull(), nil, nil, nil)
@@ -27,7 +37,7 @@ func runFunction(t *testing.T, f function.Function, args []attr.Value) *function
 	t.Helper()
 	ctx := context.Background()
 	req := function.RunRequest{
-		Arguments: function.NewArgumentsData(args),
+		Arguments: function.NewArgumentsData(functiontest.Complete(t, f, args)),
 	}
 	resp := &function.RunResponse{
 		Result: function.NewResultData(types.ObjectNull(components.ComponentAttrTypes)),
@@ -184,13 +194,13 @@ func TestVirtualNetworkFunction_Run_Minimal(t *testing.T) {
 		"display_name": types.StringType,
 		"description":  types.StringType,
 		"cidr_block":   types.StringType,
-		"links":        types.ListType{ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}},
+		"links":        types.DynamicType,
 	}, map[string]attr.Value{
 		"id":           types.StringValue("my-vpc"),
 		"display_name": types.StringNull(),
 		"description":  types.StringNull(),
 		"cidr_block":   types.StringNull(),
-		"links":        types.ListNull(types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}),
+		"links":        types.DynamicNull(),
 	})
 	if diags.HasError() {
 		t.Fatalf("failed to build config: %s", diags.Errors())
@@ -217,13 +227,13 @@ func TestVirtualNetworkFunction_Run_WithParams(t *testing.T) {
 		"display_name": types.StringType,
 		"description":  types.StringType,
 		"cidr_block":   types.StringType,
-		"links":        types.ListType{ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}},
+		"links":        types.DynamicType,
 	}, map[string]attr.Value{
 		"id":           types.StringValue("vpc-1"),
 		"display_name": types.StringValue("My VPC"),
 		"description":  types.StringValue("Test VPC"),
 		"cidr_block":   types.StringValue("10.0.0.0/16"),
-		"links":        types.ListNull(types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}),
+		"links":        types.DynamicNull(),
 	})
 	if diags.HasError() {
 		t.Fatalf("failed to build config: %s", diags.Errors())
@@ -353,26 +363,8 @@ func TestSubnetFunction_Run_WrongVpcType(t *testing.T) {
 
 func TestSecurityGroupFunction_Run_Minimal(t *testing.T) {
 	f := NewSecurityGroupFunction()
-	configObj, diags := types.ObjectValue(map[string]attr.Type{
-		"id":           types.StringType,
-		"display_name": types.StringType,
-		"description":  types.StringType,
-		"vpc":          components.ComponentObjectType,
-		"ingress_rules": types.ListType{
-			ElemType: types.ObjectType{AttrTypes: ingressRuleAttrTypes},
-		},
-	}, map[string]attr.Value{
-		"id":           types.StringValue("sg-1"),
-		"display_name": types.StringNull(),
-		"description":  types.StringNull(),
-		"vpc":          types.ObjectNull(components.ComponentAttrTypes),
-		"ingress_rules": types.ListNull(
-			types.ObjectType{AttrTypes: ingressRuleAttrTypes},
-		),
-	})
-	if diags.HasError() {
-		t.Fatalf("failed to build config: %s", diags.Errors())
-	}
+	configObj := types.ObjectValueMust(map[string]attr.Type{"id": types.StringType},
+		map[string]attr.Value{"id": types.StringValue("sg-1")})
 
 	resp := runFunction(t, f, []attr.Value{configObj})
 	attrs := getResultAttrs(t, resp)
@@ -385,85 +377,100 @@ func TestSecurityGroupFunction_Run_Minimal(t *testing.T) {
 	}
 }
 
+func ingressRuleObject(t *testing.T, attrs map[string]attr.Value) attr.Value {
+	t.Helper()
+	attrTypes := make(map[string]attr.Type, len(attrs))
+	for k, v := range attrs {
+		attrTypes[k] = v.Type(context.Background())
+	}
+	return types.ObjectValueMust(attrTypes, attrs)
+}
+
+func securityGroupArg(t *testing.T, vpc attr.Value, rules ...attr.Value) types.Object {
+	t.Helper()
+	ruleTypes := make([]attr.Type, len(rules))
+	for i, r := range rules {
+		ruleTypes[i] = r.Type(context.Background())
+	}
+	tuple := types.TupleValueMust(ruleTypes, rules)
+	return types.ObjectValueMust(map[string]attr.Type{
+		"id":            types.StringType,
+		"description":   types.StringType,
+		"vpc":           components.ComponentObjectType,
+		"ingress_rules": types.DynamicType,
+	}, map[string]attr.Value{
+		"id":            types.StringValue("sg-1"),
+		"description":   types.StringValue("My SG"),
+		"vpc":           vpc,
+		"ingress_rules": types.DynamicValue(tuple),
+	})
+}
+
 func TestSecurityGroupFunction_Run_WithIngressRules(t *testing.T) {
 	f := NewSecurityGroupFunction()
 	vpc := buildTestComponent(t, "my-vpc", "NetworkAndCompute.IaaS.VirtualNetwork")
 
-	rule1, diags := types.ObjectValue(ingressRuleAttrTypes, map[string]attr.Value{
-		"from_port":           types.Int64Value(80),
-		"to_port":             types.Int64Value(443),
-		"protocol":            types.StringValue("tcp"),
-		"source_cidr":         types.StringValue("10.0.0.0/8"),
-		"source_component_id": types.StringNull(),
+	full := ingressRuleObject(t, map[string]attr.Value{
+		"from_port":   types.NumberValue(big.NewFloat(80)),
+		"to_port":     types.NumberValue(big.NewFloat(443)),
+		"protocol":    types.StringValue("udp"),
+		"source_cidr": types.StringValue("10.0.0.0/8"),
 	})
-	if diags.HasError() {
-		t.Fatalf("failed to build rule: %s", diags.Errors())
-	}
-
-	ruleList, diags := types.ListValue(types.ObjectType{AttrTypes: ingressRuleAttrTypes}, []attr.Value{rule1})
-	if diags.HasError() {
-		t.Fatalf("failed to build rule list: %s", diags.Errors())
-	}
-
-	configObj, diags := types.ObjectValue(map[string]attr.Type{
-		"id":           types.StringType,
-		"display_name": types.StringType,
-		"description":  types.StringType,
-		"vpc":          components.ComponentObjectType,
-		"ingress_rules": types.ListType{
-			ElemType: types.ObjectType{AttrTypes: ingressRuleAttrTypes},
-		},
-	}, map[string]attr.Value{
-		"id":            types.StringValue("sg-1"),
-		"display_name":  types.StringNull(),
-		"description":   types.StringValue("My SG"),
-		"vpc":           vpc,
-		"ingress_rules": ruleList,
+	defaults := ingressRuleObject(t, map[string]attr.Value{
+		"from_port":   types.NumberValue(big.NewFloat(22)),
+		"source_cidr": types.StringValue("192.168.0.0/16"),
 	})
-	if diags.HasError() {
-		t.Fatalf("failed to build config: %s", diags.Errors())
-	}
 
-	resp := runFunction(t, f, []attr.Value{configObj})
+	resp := runFunction(t, f, []attr.Value{securityGroupArg(t, vpc, full, defaults)})
 	attrs := getResultAttrs(t, resp)
 
-	// Check vpc dependency
-	deps := attrs["dependencies_ids"].(types.List)
-	if deps.IsNull() {
-		t.Fatal("expected non-null dependencies")
-	}
-	depElems := deps.Elements()
+	depElems := attrs["dependencies_ids"].(types.List).Elements()
 	if len(depElems) != 1 || depElems[0].(types.String).ValueString() != "my-vpc" {
 		t.Errorf("expected dependency [my-vpc], got %v", depElems)
 	}
 
-	// Check ingress rules serialized in parameters
-	params := attrs["parameters"].(types.Map)
-	elems := params.Elements()
-	ingressRulesJSON := elems["ingressRules"].(types.String).ValueString()
-	var rules []ingressRuleJSON
-	if err := json.Unmarshal([]byte(ingressRulesJSON), &rules); err != nil {
+	elems := attrs["parameters"].(types.Map).Elements()
+	var rules []ingressRule
+	if err := json.Unmarshal([]byte(elems["ingressRules"].(types.String).ValueString()), &rules); err != nil {
 		t.Fatalf("failed to parse ingressRules JSON: %s", err)
 	}
-	if len(rules) != 1 {
-		t.Fatalf("expected 1 rule, got %d", len(rules))
+	want := []ingressRule{
+		{Protocol: "udp", FromPort: 80, ToPort: 443, SourceCidr: "10.0.0.0/8"},
+		{Protocol: "tcp", FromPort: 22, ToPort: 22, SourceCidr: "192.168.0.0/16"},
 	}
-	if rules[0].FromPort != 80 {
-		t.Errorf("expected fromPort 80, got %d", rules[0].FromPort)
+	if len(rules) != len(want) {
+		t.Fatalf("expected %d rules, got %d", len(want), len(rules))
 	}
-	if rules[0].ToPort != 443 {
-		t.Errorf("expected toPort 443, got %d", rules[0].ToPort)
+	for i := range want {
+		if rules[i] != want[i] {
+			t.Errorf("rule %d = %+v, want %+v", i, rules[i], want[i])
+		}
 	}
-	if rules[0].Protocol != "tcp" {
-		t.Errorf("expected protocol %q, got %q", "tcp", rules[0].Protocol)
-	}
-	if rules[0].SourceCidr != "10.0.0.0/8" {
-		t.Errorf("expected sourceCidr %q, got %q", "10.0.0.0/8", rules[0].SourceCidr)
-	}
-
-	// Check description param
+	// The agents read the group's own description from its parameters.
 	if elems["description"].(types.String).ValueString() != "My SG" {
-		t.Errorf("expected description param %q, got %q", "My SG", elems["description"].(types.String).ValueString())
+		t.Errorf("expected description param %q", "My SG")
+	}
+}
+
+func TestSecurityGroupFunction_Run_RejectsInvalidRules(t *testing.T) {
+	tests := []struct {
+		name string
+		rule map[string]attr.Value
+		want string
+	}{
+		{"missing from_port", map[string]attr.Value{"source_cidr": types.StringValue("0.0.0.0/0")}, "from_port is required"},
+		{"missing source_cidr", map[string]attr.Value{"from_port": types.NumberValue(big.NewFloat(443))}, "source_cidr is required"},
+		{"fractional port", map[string]attr.Value{"from_port": types.NumberValue(big.NewFloat(1.5)), "source_cidr": types.StringValue("0.0.0.0/0")}, "whole number"},
+		{"component source", map[string]attr.Value{"from_port": types.NumberValue(big.NewFloat(8080)), "source_component_id": types.StringValue("web")}, "source_component_id is no longer supported"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := NewSecurityGroupFunction()
+			resp := runFunction(t, f, []attr.Value{securityGroupArg(t, types.ObjectNull(components.ComponentAttrTypes), ingressRuleObject(t, tt.rule))})
+			if resp.Error == nil || !strings.Contains(resp.Error.Text, tt.want) {
+				t.Errorf("error = %v, want it to contain %q", resp.Error, tt.want)
+			}
+		})
 	}
 }
 
@@ -474,14 +481,14 @@ func TestVirtualMachineFunction_Run_Minimal(t *testing.T) {
 		"display_name":    types.StringType,
 		"description":     types.StringType,
 		"subnet":          components.ComponentObjectType,
-		"links":           types.ListType{ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}},
+		"links":           types.DynamicType,
 		"security_groups": types.ListType{ElemType: components.ComponentObjectType},
 	}, map[string]attr.Value{
 		"id":              types.StringValue("vm-1"),
 		"display_name":    types.StringNull(),
 		"description":     types.StringNull(),
 		"subnet":          types.ObjectNull(components.ComponentAttrTypes),
-		"links":           types.ListNull(types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}),
+		"links":           types.DynamicNull(),
 		"security_groups": types.ListNull(components.ComponentObjectType),
 	})
 	if diags.HasError() {
@@ -509,7 +516,7 @@ func TestVirtualMachineFunction_Run_WithDepsAndLinks(t *testing.T) {
 	linkSettings, _ := types.MapValue(types.StringType, map[string]attr.Value{
 		"fromPort": types.StringValue("8080"),
 	})
-	genericLink, diags := types.ObjectValue(components.GenericLinkAttrTypes, map[string]attr.Value{
+	genericLink, diags := types.ObjectValue(testLinkAttrTypes, map[string]attr.Value{
 		"target":   target,
 		"settings": linkSettings,
 	})
@@ -517,7 +524,7 @@ func TestVirtualMachineFunction_Run_WithDepsAndLinks(t *testing.T) {
 		t.Fatalf("failed to build generic link: %s", diags.Errors())
 	}
 
-	linkList, diags := types.ListValue(types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}, []attr.Value{genericLink})
+	linkList, diags := types.ListValue(types.ObjectType{AttrTypes: testLinkAttrTypes}, []attr.Value{genericLink})
 	if diags.HasError() {
 		t.Fatalf("failed to build link list: %s", diags.Errors())
 	}
@@ -532,14 +539,14 @@ func TestVirtualMachineFunction_Run_WithDepsAndLinks(t *testing.T) {
 		"display_name":    types.StringType,
 		"description":     types.StringType,
 		"subnet":          components.ComponentObjectType,
-		"links":           types.ListType{ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}},
+		"links":           types.DynamicType,
 		"security_groups": types.ListType{ElemType: components.ComponentObjectType},
 	}, map[string]attr.Value{
 		"id":              types.StringValue("vm-1"),
 		"display_name":    types.StringValue("My VM"),
 		"description":     types.StringNull(),
 		"subnet":          subnet,
-		"links":           linkList,
+		"links":           types.DynamicValue(linkList),
 		"security_groups": sgList,
 	})
 	if diags.HasError() {
@@ -592,13 +599,13 @@ func TestLoadBalancerFunction_Run_Minimal(t *testing.T) {
 		"id":              types.StringType,
 		"display_name":    types.StringType,
 		"description":     types.StringType,
-		"links":           types.ListType{ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}},
+		"links":           types.DynamicType,
 		"security_groups": types.ListType{ElemType: components.ComponentObjectType},
 	}, map[string]attr.Value{
 		"id":              types.StringValue("lb-1"),
 		"display_name":    types.StringNull(),
 		"description":     types.StringNull(),
-		"links":           types.ListNull(types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}),
+		"links":           types.DynamicNull(),
 		"security_groups": types.ListNull(components.ComponentObjectType),
 	})
 	if diags.HasError() {
@@ -626,7 +633,7 @@ func TestLoadBalancerFunction_Run_WithLinks(t *testing.T) {
 		"toPort":   types.StringValue("8080"),
 		"protocol": types.StringValue("tcp"),
 	})
-	genericLink, diags := types.ObjectValue(components.GenericLinkAttrTypes, map[string]attr.Value{
+	genericLink, diags := types.ObjectValue(testLinkAttrTypes, map[string]attr.Value{
 		"target":   target,
 		"settings": lbLinkSettings,
 	})
@@ -634,7 +641,7 @@ func TestLoadBalancerFunction_Run_WithLinks(t *testing.T) {
 		t.Fatalf("failed to build generic link: %s", diags.Errors())
 	}
 
-	linkList, diags := types.ListValue(types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}, []attr.Value{genericLink})
+	linkList, diags := types.ListValue(types.ObjectType{AttrTypes: testLinkAttrTypes}, []attr.Value{genericLink})
 	if diags.HasError() {
 		t.Fatalf("failed to build link list: %s", diags.Errors())
 	}
@@ -648,13 +655,13 @@ func TestLoadBalancerFunction_Run_WithLinks(t *testing.T) {
 		"id":              types.StringType,
 		"display_name":    types.StringType,
 		"description":     types.StringType,
-		"links":           types.ListType{ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}},
+		"links":           types.DynamicType,
 		"security_groups": types.ListType{ElemType: components.ComponentObjectType},
 	}, map[string]attr.Value{
 		"id":              types.StringValue("lb-1"),
 		"display_name":    types.StringValue("My LB"),
 		"description":     types.StringNull(),
-		"links":           linkList,
+		"links":           types.DynamicValue(linkList),
 		"security_groups": sgList,
 	})
 	if diags.HasError() {

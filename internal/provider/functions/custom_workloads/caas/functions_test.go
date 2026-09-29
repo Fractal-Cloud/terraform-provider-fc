@@ -2,6 +2,7 @@ package caas
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -9,192 +10,111 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"fractal.cloud/terraform-provider-fc/internal/provider/components"
+	ft "fractal.cloud/terraform-provider-fc/internal/provider/functions/functiontest"
 )
 
-func buildTestComponent(t *testing.T, id, componentType string) types.Object {
+func component(t *testing.T, id, componentType string) types.Object {
 	t.Helper()
 	obj, err := components.BuildComponent(id, componentType, types.StringNull(), types.StringNull(), types.StringNull(), nil, nil, nil)
 	if err != nil {
-		t.Fatalf("failed to build test component: %s", err.Text)
+		t.Fatalf("building %s: %s", id, err.Text)
 	}
 	return obj
 }
 
-func runFunction(t *testing.T, f function.Function, args []attr.Value) *function.RunResponse {
-	t.Helper()
-	ctx := context.Background()
-	req := function.RunRequest{
-		Arguments: function.NewArgumentsData(args),
-	}
-	resp := &function.RunResponse{
-		Result: function.NewResultData(types.ObjectNull(components.ComponentAttrTypes)),
-	}
-	f.Run(ctx, req, resp)
-	return resp
-}
-
-func getResultAttrs(t *testing.T, resp *function.RunResponse) map[string]attr.Value {
-	t.Helper()
-	if resp.Error != nil {
-		t.Fatalf("unexpected error: %s", resp.Error.Text)
-	}
-	result := resp.Result.Value()
-	obj, ok := result.(types.Object)
-	if !ok {
-		t.Fatalf("expected types.Object result, got %T", result)
-	}
-	return obj.Attributes()
-}
-
-var workloadAttrTypes = map[string]attr.Type{
-	"id":              types.StringType,
-	"display_name":    types.StringType,
-	"description":     types.StringType,
-	"container_image": types.StringType,
-	"container_port":  types.Int64Type,
-	"container_name":  types.StringType,
-	"cpu":             types.StringType,
-	"memory":          types.StringType,
-	"desired_count":   types.Int64Type,
-	"platform":        components.ComponentObjectType,
-	"subnet":          components.ComponentObjectType,
-	"links":           types.ListType{ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}},
-	"security_groups": types.ListType{ElemType: components.ComponentObjectType},
-}
-
 func TestWorkloadFunction_Metadata(t *testing.T) {
-	f := NewWorkloadFunction()
-	req := function.MetadataRequest{}
 	resp := &function.MetadataResponse{}
-	f.Metadata(context.Background(), req, resp)
+	NewWorkloadFunction().Metadata(context.Background(), function.MetadataRequest{}, resp)
 	if resp.Name != "custom_workloads_caas_workload" {
-		t.Errorf("expected name %q, got %q", "custom_workloads_caas_workload", resp.Name)
-	}
-}
-
-func TestWorkloadFunction_Definition(t *testing.T) {
-	f := NewWorkloadFunction()
-	req := function.DefinitionRequest{}
-	resp := &function.DefinitionResponse{}
-	f.Definition(context.Background(), req, resp)
-	if len(resp.Definition.Parameters) != 1 {
-		t.Errorf("expected 1 parameter, got %d", len(resp.Definition.Parameters))
-	}
-	if resp.Definition.Return == nil {
-		t.Error("expected non-nil return type")
+		t.Errorf("name = %q, want %q", resp.Name, "custom_workloads_caas_workload")
 	}
 }
 
 func TestWorkloadFunction_Run_Minimal(t *testing.T) {
-	f := NewWorkloadFunction()
-	configObj, diags := types.ObjectValue(workloadAttrTypes, map[string]attr.Value{
-		"id":              types.StringValue("workload-1"),
-		"display_name":    types.StringNull(),
-		"description":     types.StringNull(),
-		"container_image": types.StringNull(),
-		"container_port":  types.Int64Null(),
-		"container_name":  types.StringNull(),
-		"cpu":             types.StringNull(),
-		"memory":          types.StringNull(),
-		"desired_count":   types.Int64Null(),
-		"platform":        types.ObjectNull(components.ComponentAttrTypes),
-		"subnet":          types.ObjectNull(components.ComponentAttrTypes),
-		"links":           types.ListNull(types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}),
-		"security_groups": types.ListNull(components.ComponentObjectType),
-	})
-	if diags.HasError() {
-		t.Fatalf("failed to build config: %s", diags.Errors())
+	c := ft.Component(t, ft.Run(t, NewWorkloadFunction(), ft.Object(t, map[string]attr.Value{
+		"id": types.StringValue("api"),
+	})))
+	if got := c["type"].(types.String).ValueString(); got != "CustomWorkloads.CaaS.Workload" {
+		t.Errorf("type = %q, want %q", got, "CustomWorkloads.CaaS.Workload")
 	}
+	ft.ExpectParameters(t, c, map[string]string{})
+}
 
-	resp := runFunction(t, f, []attr.Value{configObj})
-	attrs := getResultAttrs(t, resp)
+func TestWorkloadFunction_Run_LinksAndSecurityGroups(t *testing.T) {
+	db := component(t, "orders-db", "Storage.PaaS.RelationalDatabase")
+	sg := component(t, "web-sg", "NetworkAndCompute.IaaS.SecurityGroup")
+	c := ft.Component(t, ft.Run(t, NewWorkloadFunction(), ft.Object(t, map[string]attr.Value{
+		"id": types.StringValue("api"),
+		"links": ft.Tuple(t, ft.Object(t, map[string]attr.Value{
+			"target":   db,
+			"settings": ft.Object(t, map[string]attr.Value{"access": types.StringValue("read-write")}),
+		})),
+		"security_groups": types.ListValueMust(components.ComponentObjectType, []attr.Value{sg}),
+	})))
 
-	if attrs["id"].(types.String).ValueString() != "workload-1" {
-		t.Errorf("expected id %q", "workload-1")
+	links := ft.Links(t, c)
+	if links["orders-db"]["access"] != "read-write" {
+		t.Errorf("links = %v, want orders-db with access=read-write", links)
 	}
-	if attrs["type"].(types.String).ValueString() != "CustomWorkloads.CaaS.Workload" {
-		t.Errorf("expected type %q", "CustomWorkloads.CaaS.Workload")
+	if _, ok := links["web-sg"]; !ok {
+		t.Errorf("links = %v, want a web-sg membership link", links)
 	}
 }
 
-func TestWorkloadFunction_Run_WithDepsAndParams(t *testing.T) {
-	f := NewWorkloadFunction()
-	platform := buildTestComponent(t, "k8s-1", "NetworkAndCompute.PaaS.ContainerPlatform")
-	subnet := buildTestComponent(t, "subnet-1", "NetworkAndCompute.IaaS.Subnet")
-	sg := buildTestComponent(t, "sg-1", "NetworkAndCompute.IaaS.SecurityGroup")
-	target := buildTestComponent(t, "workload-2", "CustomWorkloads.CaaS.Workload")
+func TestWorkloadFunction_Run_RejectsWrongSubnetType(t *testing.T) {
+	resp := ft.Run(t, NewWorkloadFunction(), ft.Object(t, map[string]attr.Value{
+		"id":     types.StringValue("api"),
+		"subnet": component(t, "vpc", "NetworkAndCompute.IaaS.VirtualNetwork"),
+	}))
+	if resp.Error == nil || !strings.Contains(resp.Error.Text, "NetworkAndCompute.IaaS.Subnet") {
+		t.Errorf("error = %v, want a subnet type error", resp.Error)
+	}
+}
 
-	linkSettings, _ := types.MapValue(types.StringType, map[string]attr.Value{
-		"fromPort": types.StringValue("8080"),
-	})
-	genericLink, diags := types.ObjectValue(components.GenericLinkAttrTypes, map[string]attr.Value{
-		"target":   target,
-		"settings": linkSettings,
-	})
-	if diags.HasError() {
-		t.Fatalf("failed to build generic link: %s", diags.Errors())
-	}
-	linkList, diags := types.ListValue(types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}, []attr.Value{genericLink})
-	if diags.HasError() {
-		t.Fatalf("failed to build link list: %s", diags.Errors())
-	}
-	sgList, diags := types.ListValue(components.ComponentObjectType, []attr.Value{sg})
-	if diags.HasError() {
-		t.Fatalf("failed to build sg list: %s", diags.Errors())
-	}
-
-	configObj, diags := types.ObjectValue(workloadAttrTypes, map[string]attr.Value{
-		"id":              types.StringValue("workload-1"),
-		"display_name":    types.StringValue("My Workload"),
-		"description":     types.StringNull(),
-		"container_image": types.StringValue("nginx:latest"),
-		"container_port":  types.Int64Value(80),
-		"container_name":  types.StringValue("web"),
-		"cpu":             types.StringValue("256"),
-		"memory":          types.StringValue("512"),
-		"desired_count":   types.Int64Value(3),
+func TestWorkloadFunction_Run_WritesEveryCaaSOfferKey(t *testing.T) {
+	platform := component(t, "k8s", "NetworkAndCompute.PaaS.ContainerPlatform")
+	subnet := component(t, "private", "NetworkAndCompute.IaaS.Subnet")
+	c := ft.Component(t, ft.Run(t, NewWorkloadFunction(), ft.Object(t, map[string]attr.Value{
+		"id":              types.StringValue("api"),
+		"container_image": types.StringValue("ghcr.io/acme/api:1.2"),
+		"container_port":  types.Int64Value(8080),
+		"container_name":  types.StringValue("api"),
+		"cpu":             types.StringValue("500m"),
+		"memory":          types.StringValue("512Mi"),
+		"replicas":        types.Int64Value(3),
 		"platform":        platform,
 		"subnet":          subnet,
-		"links":           linkList,
-		"security_groups": sgList,
+		"extra_parameters": types.MapValueMust(types.StringType, map[string]attr.Value{
+			"namespace": types.StringValue("orders"),
+		}),
+	})))
+
+	ft.ExpectParameters(t, c, map[string]string{
+		"containerImage": "ghcr.io/acme/api:1.2",
+		"image":          "ghcr.io/acme/api:1.2",
+		"containerPort":  "8080",
+		"port":           "8080",
+		"containerName":  "api",
+		"cpu":            "500m",
+		"memory":         "512Mi",
+		"replicas":       "3",
+		"desiredCount":   "3",
+		"namespace":      "orders",
 	})
-	if diags.HasError() {
-		t.Fatalf("failed to build config: %s", diags.Errors())
+	if deps := ft.Strings(t, c, "dependencies_ids"); len(deps) != 2 || deps[0] != "k8s" || deps[1] != "private" {
+		t.Errorf("dependencies = %v, want [k8s private]", deps)
 	}
+}
 
-	resp := runFunction(t, f, []attr.Value{configObj})
-	attrs := getResultAttrs(t, resp)
-
-	// Check dependencies
-	deps := attrs["dependencies_ids"].(types.List)
-	if deps.IsNull() {
-		t.Fatal("expected non-null dependencies")
-	}
-	depElems := deps.Elements()
-	if len(depElems) != 2 {
-		t.Fatalf("expected 2 dependencies, got %d", len(depElems))
-	}
-	if depElems[0].(types.String).ValueString() != "k8s-1" {
-		t.Errorf("expected first dep %q", "k8s-1")
-	}
-	if depElems[1].(types.String).ValueString() != "subnet-1" {
-		t.Errorf("expected second dep %q", "subnet-1")
-	}
-
-	// Check parameters
-	params := attrs["parameters"].(types.Map)
-	elems := params.Elements()
-	if elems["containerImage"].(types.String).ValueString() != "nginx:latest" {
-		t.Errorf("expected containerImage %q", "nginx:latest")
-	}
-	if elems["containerPort"].(types.String).ValueString() != "80" {
-		t.Errorf("expected containerPort %q", "80")
-	}
-
-	// Check links
-	linksVal := attrs["links"].(types.List)
-	linkElems := linksVal.Elements()
-	if len(linkElems) != 2 {
-		t.Fatalf("expected 2 links, got %d", len(linkElems))
+func TestWorkloadFunction_Run_RejectsExtraParameterSetByAttribute(t *testing.T) {
+	resp := ft.Run(t, NewWorkloadFunction(), ft.Object(t, map[string]attr.Value{
+		"id":       types.StringValue("api"),
+		"replicas": types.Int64Value(2),
+		"extra_parameters": types.MapValueMust(types.StringType, map[string]attr.Value{
+			"replicas": types.StringValue("5"),
+		}),
+	}))
+	if resp.Error == nil || !strings.Contains(resp.Error.Text, "extra_parameters.replicas") {
+		t.Errorf("error = %v, want a conflict on replicas", resp.Error)
 	}
 }

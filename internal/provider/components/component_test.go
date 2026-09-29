@@ -407,14 +407,12 @@ func TestExtractDependency_NullObject(t *testing.T) {
 	}
 }
 
+// An unknown dependency is an error, not an absent one: dropping it would
+// silently lose the ordering constraint.
 func TestExtractDependency_UnknownObject(t *testing.T) {
 	obj := types.ObjectUnknown(ComponentAttrTypes)
-	id, funcErr := ExtractDependency(obj, "NetworkAndCompute.IaaS.AwsVpc")
-	if funcErr != nil {
-		t.Fatalf("unexpected error: %s", funcErr.Text)
-	}
-	if id != "" {
-		t.Errorf("expected empty string for unknown object, got %q", id)
+	if _, funcErr := ExtractDependency(obj, "NetworkAndCompute.IaaS.AwsVpc"); funcErr == nil {
+		t.Fatal("expected an error for an unknown dependency")
 	}
 }
 
@@ -511,72 +509,5 @@ func TestComponentReturn_HasCorrectAttrTypes(t *testing.T) {
 		if !gotType.Equal(expectedType) {
 			t.Errorf("attribute type mismatch for key %q: expected %v, got %v", key, expectedType, gotType)
 		}
-	}
-}
-
-func TestGenericLinksToComponentLinks_WithSettings(t *testing.T) {
-	target := buildTestComponent(t, "target-1", "BigData.PaaS.Datalake")
-	genericLinks := []GenericLinkConfig{
-		{
-			Target: target,
-			Settings: func() types.Map {
-				m, _ := types.MapValue(types.StringType, map[string]attr.Value{
-					"mountName": types.StringValue("datalake"),
-				})
-				return m
-			}(),
-		},
-	}
-
-	result, funcErr := GenericLinksToComponentLinks(genericLinks)
-	if funcErr != nil {
-		t.Fatalf("unexpected error: %s", funcErr.Text)
-	}
-	if len(result) != 1 {
-		t.Fatalf("expected 1 link, got %d", len(result))
-	}
-	if result[0].ComponentId != "target-1" {
-		t.Errorf("expected component id %q, got %q", "target-1", result[0].ComponentId)
-	}
-	if result[0].Settings["mountName"] != "datalake" {
-		t.Errorf("expected mountName %q, got %q", "datalake", result[0].Settings["mountName"])
-	}
-}
-
-func TestGenericLinksToComponentLinks_NoSettings(t *testing.T) {
-	target := buildTestComponent(t, "peer-vpc", "NetworkAndCompute.IaaS.VirtualNetwork")
-	genericLinks := []GenericLinkConfig{
-		{
-			Target:   target,
-			Settings: types.MapNull(types.StringType),
-		},
-	}
-
-	result, funcErr := GenericLinksToComponentLinks(genericLinks)
-	if funcErr != nil {
-		t.Fatalf("unexpected error: %s", funcErr.Text)
-	}
-	if len(result) != 1 {
-		t.Fatalf("expected 1 link, got %d", len(result))
-	}
-	if result[0].ComponentId != "peer-vpc" {
-		t.Errorf("expected component id %q, got %q", "peer-vpc", result[0].ComponentId)
-	}
-	if result[0].Settings != nil {
-		t.Errorf("expected nil settings, got %v", result[0].Settings)
-	}
-}
-
-func TestGenericLinksToComponentLinks_NullTarget(t *testing.T) {
-	genericLinks := []GenericLinkConfig{
-		{
-			Target:   types.ObjectNull(ComponentAttrTypes),
-			Settings: types.MapNull(types.StringType),
-		},
-	}
-
-	_, funcErr := GenericLinksToComponentLinks(genericLinks)
-	if funcErr == nil {
-		t.Fatal("expected error for null target, got nil")
 	}
 }

@@ -41,3 +41,4 @@ messaging_paas_entity(config object) object
 | `description` | String | No | Description of the component's purpose. |
 | `message_retention_hours` | Number | No | Number of hours to retain messages. |
 | `broker` | Component Object | No | The Message Broker component to depend on. If provided, added as a dependency. |
+| `extra_parameters` | Map of String | No | Additional parameters for keys the chosen offer reads that have no attribute here. A key an attribute already sets is rejected. JSON object or array strings (e.g. from `jsonencode()` or `secret_ref()`) are sent as JSON. |

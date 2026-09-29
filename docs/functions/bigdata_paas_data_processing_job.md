@@ -56,3 +56,21 @@ bigdata_paas_data_processing_job(config object) object
 | `max_retries` | Number | No | Maximum number of retries on failure. |
 | `existing_cluster` | Boolean | No | Whether to use an existing cluster instead of creating a new one. |
 | `parameters` | List of String | No | List of parameters to pass to the job. |
+| `links` | List of Object | No | Links to the data the job reads and writes. See [Link Object](#link-object). |
+| `extra_parameters` | Map of String | No | Additional parameters for keys the chosen offer reads that have no attribute here. A key an attribute already sets is rejected. JSON object or array strings (e.g. from `jsonencode()` or `secret_ref()`) are sent as JSON. |
+
+### Link Object
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `target` | Component Object | Yes | The component linked to. |
+| `settings` | Object | No | Settings for the link. |
+
+A link to a `BigData.*.Datalake` takes `purpose` (`"raw"`, `"curated"` or `"checkpoint"`, required) and an optional `path` inside the lake. A link to a `Messaging.*.Entity` takes `access` (`"publish"`, `"subscribe"` or `"publish-subscribe"`, required), plus the optional `consumerGroup` and `startingPosition`.
+
+```terraform
+links = [
+  { target = local.lake,   settings = { purpose = "raw", path = "orders" } },
+  { target = local.events, settings = { access = "subscribe", consumerGroup = "etl" } },
+]
+```

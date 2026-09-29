@@ -33,7 +33,7 @@ func (f *BigdataPaasComputeClusterFunction) Definition(_ context.Context, _ func
 			function.ObjectParameter{
 				Name:        "config",
 				Description: "Compute Cluster configuration",
-				AttributeTypes: map[string]attr.Type{
+				CustomType: components.NewConfigObjectType(map[string]attr.Type{
 					"id":                       types.StringType,
 					"display_name":             types.StringType,
 					"description":              types.StringType,
@@ -45,12 +45,11 @@ func (f *BigdataPaasComputeClusterFunction) Definition(_ context.Context, _ func
 					"max_workers":              types.Int64Type,
 					"auto_termination_minutes": types.Int64Type,
 					"spark_conf":               types.MapType{ElemType: types.StringType},
-					"pypi_libraries":  types.ListType{ElemType: types.StringType},
-					"maven_libraries": types.ListType{ElemType: types.StringType},
-					"links": types.ListType{
-						ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes},
-					},
-				},
+					"pypi_libraries":           types.ListType{ElemType: types.StringType},
+					"maven_libraries":          types.ListType{ElemType: types.StringType},
+					"links":                    components.LinksAttrType,
+					"extra_parameters":         components.ParametersAttrType,
+				}, "id"),
 			},
 		},
 		Return: components.ComponentReturn(),
@@ -58,20 +57,21 @@ func (f *BigdataPaasComputeClusterFunction) Definition(_ context.Context, _ func
 }
 
 type bigdataPaasComputeClusterConfig struct {
-	Id                     types.String `tfsdk:"id"`
-	DisplayName            types.String `tfsdk:"display_name"`
-	Description            types.String `tfsdk:"description"`
-	Platform               types.Object `tfsdk:"platform"`
-	ClusterName            types.String `tfsdk:"cluster_name"`
-	SparkVersion           types.String `tfsdk:"spark_version"`
-	NumWorkers             types.Int64  `tfsdk:"num_workers"`
-	MinWorkers             types.Int64  `tfsdk:"min_workers"`
-	MaxWorkers             types.Int64  `tfsdk:"max_workers"`
-	AutoTerminationMinutes types.Int64  `tfsdk:"auto_termination_minutes"`
-	SparkConf              types.Map    `tfsdk:"spark_conf"`
-	PypiLibraries          types.List   `tfsdk:"pypi_libraries"`
-	MavenLibraries         types.List   `tfsdk:"maven_libraries"`
-	Links                  types.List   `tfsdk:"links"`
+	Id                     types.String  `tfsdk:"id"`
+	DisplayName            types.String  `tfsdk:"display_name"`
+	Description            types.String  `tfsdk:"description"`
+	Platform               types.Object  `tfsdk:"platform"`
+	ClusterName            types.String  `tfsdk:"cluster_name"`
+	SparkVersion           types.String  `tfsdk:"spark_version"`
+	NumWorkers             types.Int64   `tfsdk:"num_workers"`
+	MinWorkers             types.Int64   `tfsdk:"min_workers"`
+	MaxWorkers             types.Int64   `tfsdk:"max_workers"`
+	AutoTerminationMinutes types.Int64   `tfsdk:"auto_termination_minutes"`
+	SparkConf              types.Map     `tfsdk:"spark_conf"`
+	PypiLibraries          types.List    `tfsdk:"pypi_libraries"`
+	MavenLibraries         types.List    `tfsdk:"maven_libraries"`
+	Links                  types.Dynamic `tfsdk:"links"`
+	ExtraParameters        types.Map     `tfsdk:"extra_parameters"`
 }
 
 func (f *BigdataPaasComputeClusterFunction) Run(ctx context.Context, req function.RunRequest, resp *function.RunResponse) {
@@ -152,19 +152,17 @@ func (f *BigdataPaasComputeClusterFunction) Run(ctx context.Context, req functio
 	}
 
 	var links []components.ComponentLink
-	if !config.Links.IsNull() && !config.Links.IsUnknown() {
-		var genericLinks []components.GenericLinkConfig
-		diags := config.Links.ElementsAs(ctx, &genericLinks, false)
-		if diags.HasError() {
-			resp.Error = function.NewFuncError("failed to parse links")
-			return
-		}
-		resolved, funcErr := components.GenericLinksToComponentLinks(genericLinks)
-		if funcErr != nil {
-			resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
-			return
-		}
-		links = append(links, resolved...)
+	resolved, funcErr := components.LinksFromDynamic(config.Links)
+	if funcErr != nil {
+		resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
+		return
+	}
+	links = append(links, resolved...)
+
+	parameters, funcErr := components.WithExtraParameters(params, config.ExtraParameters)
+	if funcErr != nil {
+		resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
+		return
 	}
 
 	result, funcErr := components.BuildComponent(
@@ -173,7 +171,7 @@ func (f *BigdataPaasComputeClusterFunction) Run(ctx context.Context, req functio
 		components.OptionalString(config.DisplayName),
 		components.OptionalString(config.Description),
 		types.StringNull(),
-		params,
+		parameters,
 		deps,
 		links,
 	)
