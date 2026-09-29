@@ -589,3 +589,29 @@ func TestDistributedDataProcessingFunction_Run_WithLinks(t *testing.T) {
 		t.Errorf("expected mountName %q", "datalake")
 	}
 }
+
+func TestBigdataPaasDataProcessingJobFunction_Run_LinksToDatalakeAndEntity(t *testing.T) {
+	lake := buildTestComponent(t, "lake", "BigData.PaaS.Datalake")
+	topic := buildTestComponent(t, "events", "Messaging.PaaS.Entity")
+	c := functiontest.Component(t, functiontest.Run(t, NewBigdataPaasDataProcessingJobFunction(), functiontest.Object(t, map[string]attr.Value{
+		"id": types.StringValue("etl"),
+		"links": functiontest.Tuple(t,
+			functiontest.Object(t, map[string]attr.Value{
+				"target":   lake,
+				"settings": functiontest.Object(t, map[string]attr.Value{"purpose": types.StringValue("raw"), "path": types.StringValue("orders")}),
+			}),
+			functiontest.Object(t, map[string]attr.Value{
+				"target":   topic,
+				"settings": functiontest.Object(t, map[string]attr.Value{"access": types.StringValue("subscribe")}),
+			}),
+		),
+	})))
+
+	links := functiontest.Links(t, c)
+	if links["lake"]["purpose"] != "raw" || links["lake"]["path"] != "orders" {
+		t.Errorf("lake link = %v", links["lake"])
+	}
+	if links["events"]["access"] != "subscribe" {
+		t.Errorf("events link = %v", links["events"])
+	}
+}

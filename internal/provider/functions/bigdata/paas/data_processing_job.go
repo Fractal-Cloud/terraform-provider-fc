@@ -28,7 +28,9 @@ func (f *BigdataPaasDataProcessingJobFunction) Definition(_ context.Context, _ f
 	resp.Definition = function.Definition{
 		Summary: "Creates a BigData PaaS Data Processing Job blueprint component",
 		Description: "Builds a BigData PaaS Data Processing Job component with the correct type for use in a fractal's components list. " +
-			"If platform is provided, it is automatically added as a dependency.",
+			"If platform is provided, it is automatically added as a dependency. " +
+			"Link the job to a Datalake with settings = { purpose = \"raw\" | \"curated\" | \"checkpoint\", path = ... } " +
+			"and to a messaging Entity with settings = { access = \"publish\" | \"subscribe\" | \"publish-subscribe\" }.",
 		Parameters: []function.Parameter{
 			function.ObjectParameter{
 				Name:        "config",
@@ -48,6 +50,7 @@ func (f *BigdataPaasDataProcessingJobFunction) Definition(_ context.Context, _ f
 					"max_retries":      types.Int64Type,
 					"existing_cluster": types.BoolType,
 					"parameters":       types.ListType{ElemType: types.StringType},
+					"links":            components.LinksAttrType,
 					"extra_parameters": components.ParametersAttrType,
 				}, "id"),
 			},
@@ -57,21 +60,22 @@ func (f *BigdataPaasDataProcessingJobFunction) Definition(_ context.Context, _ f
 }
 
 type bigdataPaasDataProcessingJobConfig struct {
-	Id              types.String `tfsdk:"id"`
-	DisplayName     types.String `tfsdk:"display_name"`
-	Description     types.String `tfsdk:"description"`
-	Platform        types.Object `tfsdk:"platform"`
-	JobName         types.String `tfsdk:"job_name"`
-	TaskType        types.String `tfsdk:"task_type"`
-	NotebookPath    types.String `tfsdk:"notebook_path"`
-	PythonFile      types.String `tfsdk:"python_file"`
-	MainClassName   types.String `tfsdk:"main_class_name"`
-	JarUri          types.String `tfsdk:"jar_uri"`
-	CronSchedule    types.String `tfsdk:"cron_schedule"`
-	MaxRetries      types.Int64  `tfsdk:"max_retries"`
-	ExistingCluster types.Bool   `tfsdk:"existing_cluster"`
-	Parameters      types.List   `tfsdk:"parameters"`
-	ExtraParameters types.Map    `tfsdk:"extra_parameters"`
+	Id              types.String  `tfsdk:"id"`
+	DisplayName     types.String  `tfsdk:"display_name"`
+	Description     types.String  `tfsdk:"description"`
+	Platform        types.Object  `tfsdk:"platform"`
+	JobName         types.String  `tfsdk:"job_name"`
+	TaskType        types.String  `tfsdk:"task_type"`
+	NotebookPath    types.String  `tfsdk:"notebook_path"`
+	PythonFile      types.String  `tfsdk:"python_file"`
+	MainClassName   types.String  `tfsdk:"main_class_name"`
+	JarUri          types.String  `tfsdk:"jar_uri"`
+	CronSchedule    types.String  `tfsdk:"cron_schedule"`
+	MaxRetries      types.Int64   `tfsdk:"max_retries"`
+	ExistingCluster types.Bool    `tfsdk:"existing_cluster"`
+	Parameters      types.List    `tfsdk:"parameters"`
+	Links           types.Dynamic `tfsdk:"links"`
+	ExtraParameters types.Map     `tfsdk:"extra_parameters"`
 }
 
 func (f *BigdataPaasDataProcessingJobFunction) Run(ctx context.Context, req function.RunRequest, resp *function.RunResponse) {
@@ -140,6 +144,12 @@ func (f *BigdataPaasDataProcessingJobFunction) Run(ctx context.Context, req func
 		return
 	}
 
+	links, funcErr := components.LinksFromDynamic(config.Links)
+	if funcErr != nil {
+		resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
+		return
+	}
+
 	result, funcErr := components.BuildComponent(
 		config.Id.ValueString(),
 		"BigData.PaaS.DataProcessingJob",
@@ -148,7 +158,7 @@ func (f *BigdataPaasDataProcessingJobFunction) Run(ctx context.Context, req func
 		types.StringNull(),
 		parameters,
 		deps,
-		nil,
+		links,
 	)
 	resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
 	if resp.Error != nil {

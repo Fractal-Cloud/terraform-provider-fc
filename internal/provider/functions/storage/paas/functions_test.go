@@ -505,3 +505,12 @@ func TestGraphDatabaseFunction_Run(t *testing.T) {
 		t.Errorf("expected dependency %q", "graph-1")
 	}
 }
+
+func TestStoragePaasRelationalDbmsFunction_Run_VersionAndAge(t *testing.T) {
+	c := functiontest.Component(t, functiontest.Run(t, NewStoragePaasRelationalDbmsFunction(), functiontest.Object(t, map[string]attr.Value{
+		"id":             types.StringValue("pg"),
+		"engine_version": types.StringValue("16"),
+		"age":            types.BoolValue(true),
+	})))
+	functiontest.ExpectParameters(t, c, map[string]string{"version": "16", "age": "true"})
+}

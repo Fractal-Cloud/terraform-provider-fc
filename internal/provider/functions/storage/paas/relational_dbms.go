@@ -2,6 +2,7 @@ package paas
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/function"
@@ -24,8 +25,9 @@ func (f *StoragePaasRelationalDbmsFunction) Metadata(_ context.Context, _ functi
 
 func (f *StoragePaasRelationalDbmsFunction) Definition(_ context.Context, _ function.DefinitionRequest, resp *function.DefinitionResponse) {
 	resp.Definition = function.Definition{
-		Summary:     "Creates a Relational DBMS Platform blueprint component",
-		Description: "Builds a Relational DBMS Platform component with the correct type for use in a fractal's components list.",
+		Summary: "Creates a Relational DBMS Platform blueprint component",
+		Description: "Builds a Relational DBMS Platform component with the correct type for use in a fractal's components list. " +
+			"engine_version is required. age enables the Apache AGE graph extension (Azure; use the CaaS DBMS elsewhere).",
 		Parameters: []function.Parameter{
 			function.ObjectParameter{
 				Name:        "config",
@@ -35,8 +37,9 @@ func (f *StoragePaasRelationalDbmsFunction) Definition(_ context.Context, _ func
 					"display_name":     types.StringType,
 					"description":      types.StringType,
 					"engine_version":   types.StringType,
+					"age":              types.BoolType,
 					"extra_parameters": components.ParametersAttrType,
-				}, "id"),
+				}, "id", "engine_version"),
 			},
 		},
 		Return: components.ComponentReturn(),
@@ -48,6 +51,7 @@ type storagePaasRelationalDbmsConfig struct {
 	DisplayName     types.String `tfsdk:"display_name"`
 	Description     types.String `tfsdk:"description"`
 	EngineVersion   types.String `tfsdk:"engine_version"`
+	Age             types.Bool   `tfsdk:"age"`
 	ExtraParameters types.Map    `tfsdk:"extra_parameters"`
 }
 
@@ -62,6 +66,9 @@ func (f *StoragePaasRelationalDbmsFunction) Run(ctx context.Context, req functio
 
 	if !config.EngineVersion.IsNull() && !config.EngineVersion.IsUnknown() {
 		params["version"] = config.EngineVersion.ValueString()
+	}
+	if !config.Age.IsNull() && !config.Age.IsUnknown() {
+		params["age"] = strconv.FormatBool(config.Age.ValueBool())
 	}
 
 	parameters, funcErr := components.WithExtraParameters(params, config.ExtraParameters)
