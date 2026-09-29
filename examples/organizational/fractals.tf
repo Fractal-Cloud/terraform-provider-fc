@@ -1,7 +1,7 @@
 data "fc_fractal" "existing_fractal" {
   bounded_context_id = data.fc_organizational_bounded_context.existing_bounded_context.id
-  name    = "existing-fractal"
-  version = "1.0"
+  name               = "existing-fractal"
+  version            = "1.0"
 }
 
 # Multi-tier IaaS Fractal with full dependency and link wiring.
@@ -16,19 +16,19 @@ locals {
   })
 
   org_web_subnet = provider::fc::network_and_compute_iaas_subnet({
-    id                = "web-subnet"
-    display_name      = "Web Tier Subnet"
-    description       = "Web tier subnet"
-    cidr_block        = "10.0.1.0/24"
-    vpc               = local.org_main_vpc
+    id           = "web-subnet"
+    display_name = "Web Tier Subnet"
+    description  = "Web tier subnet"
+    cidr_block   = "10.0.1.0/24"
+    vpc          = local.org_main_vpc
   })
 
   org_app_subnet = provider::fc::network_and_compute_iaas_subnet({
-    id                = "app-subnet"
-    display_name      = "App Tier Subnet"
-    description       = "Application tier subnet"
-    cidr_block        = "10.0.2.0/24"
-    vpc               = local.org_main_vpc
+    id           = "app-subnet"
+    display_name = "App Tier Subnet"
+    description  = "Application tier subnet"
+    cidr_block   = "10.0.2.0/24"
+    vpc          = local.org_main_vpc
   })
 
   org_web_sg = provider::fc::network_and_compute_iaas_security_group({
@@ -44,17 +44,14 @@ locals {
     ]
   })
 
+  # No ingress rules: traffic from the web tier is admitted by the
+  # web-server -> app-server link below, from which the agent derives the
+  # rules on both servers' managed security groups.
   org_app_sg = provider::fc::network_and_compute_iaas_security_group({
     id           = "app-sg"
     display_name = "App Security Group"
-    description  = "Allow traffic from web tier only"
+    description  = "Application tier; reachable only through links"
     vpc          = local.org_main_vpc
-    ingress_rules = [
-      {
-        from_port           = 8080
-        source_component_id = "web-server"
-      }
-    ]
   })
 
   # App server: depends on app-subnet, member of app-sg
@@ -76,9 +73,9 @@ locals {
     security_groups = [local.org_web_sg]
     links = [
       {
-        target   = local.org_app_server
+        target = local.org_app_server
         settings = {
-          fromPort = "8080"
+          fromPort = 8080
         }
       }
     ]
@@ -87,9 +84,9 @@ locals {
 
 resource "fc_fractal" "org_iaas" {
   bounded_context_id = data.fc_organizational_bounded_context.existing_bounded_context.id
-  name        = "org-iaas"
-  version     = "1.0"
-  description = "Organization multi-tier IaaS architecture"
+  name               = "org-iaas"
+  version            = "1.0"
+  description        = "Organization multi-tier IaaS architecture"
 
   components = [
     local.org_main_vpc,

@@ -57,3 +57,4 @@ api_management_caas_api_gateway(config object) object
 | `description` | String | No | Description of the component's purpose. |
 | `container_platform` | Component Object | No | A Container Orchestrator component to add as a dependency. Must be a container platform component. |
 | `links` | List of Link Object | No | Links to other components (e.g. workloads) with optional settings. Each link has a `target` (Component Object) and optional `settings` (Map of String). |
+| `extra_parameters` | Map of String | No | Additional parameters for keys the chosen offer reads that have no attribute here. A key an attribute already sets is rejected. JSON object or array strings (e.g. from `jsonencode()` or `secret_ref()`) are sent as JSON. |

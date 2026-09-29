@@ -7,7 +7,9 @@ description: |-
 
 # function: network_and_compute_iaas_security_group
 
-Creates a SecurityGroup blueprint component. If `vpc` is provided, it is validated to ensure it is a VirtualNetwork component and added as a dependency. Ingress rules are serialized into parameters for the agent to reconcile.
+Creates a SecurityGroup blueprint component. If `vpc` is provided, it is validated to ensure it is a VirtualNetwork component and added as a dependency; without it the agent places the group in the environment's network. Compute components join the group through their `security_groups` attribute.
+
+`ingress_rules` admit traffic from CIDR ranges. Traffic between two components is not a rule here: link the source component to the target with `settings = { fromPort = 8080 }`, and the agent derives the rules on both components' managed security groups.
 
 ## Example Usage
 
@@ -23,18 +25,8 @@ locals {
     display_name = "Web Security Group"
     vpc          = local.vpc
     ingress_rules = [
-      {
-        from_port   = 443
-        to_port     = 443
-        protocol    = "tcp"
-        source_cidr = "0.0.0.0/0"
-      },
-      {
-        from_port              = 8080
-        to_port                = 8080
-        protocol               = "tcp"
-        source_component_id    = "backend-vm"
-      }
+      { from_port = 443, source_cidr = "0.0.0.0/0" },
+      { from_port = 8000, to_port = 8100, protocol = "udp", source_cidr = "10.0.0.0/8" },
     ]
   })
 }
@@ -54,7 +46,8 @@ network_and_compute_iaas_security_group(config object) object
 | `display_name` | String | No | Human-readable name for the component. |
 | `description` | String | No | Description of the component's purpose. |
 | `vpc` | Component Object | No | A VirtualNetwork component to add as a dependency. Must be a component returned by `network_and_compute_iaas_virtual_network`. |
-| `ingress_rules` | List of Object | No | List of ingress rule objects. Each rule supports the fields described below. |
+| `ingress_rules` | List of Object | No | Ingress rules. Each rule supports the fields below; omitted optional fields take their defaults. |
+| `extra_parameters` | Map of String | No | Additional parameters for keys the chosen offer reads that have no attribute here. A key an attribute already sets is rejected. JSON object or array strings (e.g. from `jsonencode()` or `secret_ref()`) are sent as JSON. |
 
 ### Ingress Rule Object
 
@@ -63,5 +56,6 @@ network_and_compute_iaas_security_group(config object) object
 | `from_port` | Number | Yes | Start of the port range. |
 | `to_port` | Number | No | End of the port range. Defaults to `from_port`. |
 | `protocol` | String | No | Protocol (`"tcp"`, `"udp"`, `"icmp"`). Defaults to `"tcp"`. |
-| `source_cidr` | String | No | Source CIDR block (e.g. `"0.0.0.0/0"`). Mutually exclusive with `source_component_id`. |
-| `source_component_id` | String | No | ID of a source component. Mutually exclusive with `source_cidr`. |
+| `source_cidr` | String | Yes | Source CIDR block (e.g. `"0.0.0.0/0"`). |
+
+`source_component_id` is no longer accepted. Link the source component to the target instead.

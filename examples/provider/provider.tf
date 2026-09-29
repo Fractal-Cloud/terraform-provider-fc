@@ -7,6 +7,6 @@ terraform {
 }
 
 provider "fc" {
-  service_account_id = "xxx"
+  service_account_id     = "xxx"
   service_account_secret = "xxx"
 }

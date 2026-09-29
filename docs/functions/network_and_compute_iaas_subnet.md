@@ -43,3 +43,4 @@ network_and_compute_iaas_subnet(config object) object
 | `description` | String | No | Description of the component's purpose. |
 | `cidr_block` | String | No | The CIDR block for the subnet (e.g. `"10.0.1.0/24"`). |
 | `vpc` | Component Object | No | A VirtualNetwork component to add as a dependency. Must be a component returned by `network_and_compute_iaas_virtual_network`. |
+| `extra_parameters` | Map of String | No | Additional parameters for keys the chosen offer reads that have no attribute here. A key an attribute already sets is rejected. JSON object or array strings (e.g. from `jsonencode()` or `secret_ref()`) are sent as JSON. |

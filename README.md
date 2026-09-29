@@ -33,7 +33,9 @@ Fractal Cloud is a platform engineering solution that delivers secure, compliant
 
 ### Provider Functions
 
-The provider includes 46 blueprint component builder functions organized by infrastructure domain and delivery model. Function names follow the full component coordinate: `provider::fc::{domain}_{delivery_model}_{component}`. These functions create component objects for use in a fractal's `components` list. Dependencies between components are expressed as direct object references (type-checked at plan time) rather than string IDs.
+The provider includes 58 blueprint component builder functions organized by infrastructure domain and delivery model, plus `secret_ref` for referencing environment secrets. Function names follow the full component coordinate: `provider::fc::{domain}_{delivery_model}_{component}`. These functions create component objects for use in a fractal's `components` list. Dependencies between components are expressed as direct object references (type-checked at plan time) rather than string IDs.
+
+Only `id` and the attributes a function's documentation marks as required need to be set; every other attribute may be omitted. Every function also accepts `extra_parameters`, a map of offer-specific parameters with no attribute of their own.
 
 <details>
 <summary>NetworkAndCompute (7 functions)</summary>
@@ -64,7 +66,7 @@ The provider includes 46 blueprint component builder functions organized by infr
 </details>
 
 <details>
-<summary>Storage (14 functions)</summary>
+<summary>Storage (17 functions)</summary>
 
 | Function | Description |
 |---|---|
@@ -81,6 +83,9 @@ The provider includes 46 blueprint component builder functions organized by infr
 | `provider::fc::storage_paas_graph_database` | Graph database |
 | `provider::fc::storage_caas_search` | Search platform |
 | `provider::fc::storage_caas_search_entity` | Search entity / index |
+| `provider::fc::storage_caas_relational_dbms` | Containerized relational DBMS (CloudNativePG) |
+| `provider::fc::storage_caas_relational_database` | Database on a containerized DBMS |
+| `provider::fc::storage_caas_object_storage` | Containerized object storage (MinIO) |
 | `provider::fc::storage_saas_unmanaged` | External / unmanaged storage resource |
 
 </details>
@@ -99,7 +104,7 @@ The provider includes 46 blueprint component builder functions organized by infr
 </details>
 
 <details>
-<summary>BigData (6 functions)</summary>
+<summary>BigData (12 functions)</summary>
 
 | Function | Description |
 |---|---|
@@ -108,6 +113,12 @@ The provider includes 46 blueprint component builder functions organized by infr
 | `provider::fc::bigdata_paas_data_processing_job` | Data processing job |
 | `provider::fc::bigdata_paas_ml_experiment` | ML experiment |
 | `provider::fc::bigdata_paas_datalake` | Data lake |
+| `provider::fc::bigdata_caas_distributed_data_processing` | Spark on Kubernetes |
+| `provider::fc::bigdata_caas_compute_cluster` | Spark cluster on Kubernetes |
+| `provider::fc::bigdata_caas_data_processing_job` | Spark application on Kubernetes |
+| `provider::fc::bigdata_caas_ml_experiment` | MLflow tracking server |
+| `provider::fc::bigdata_caas_data_catalog` | Unity Catalog |
+| `provider::fc::bigdata_caas_datalake` | Containerized data lake (MinIO) |
 | `provider::fc::bigdata_saas_unmanaged` | External / unmanaged big data resource |
 
 </details>
@@ -136,14 +147,38 @@ The provider includes 46 blueprint component builder functions organized by infr
 </details>
 
 <details>
-<summary>Security (2 functions)</summary>
+<summary>Security (3 functions)</summary>
 
 | Function | Description |
 |---|---|
 | `provider::fc::security_caas_service_mesh_security` | Service mesh security |
+| `provider::fc::security_paas_identity_provider` | Identity provider (Cognito, Entra External ID) |
 | `provider::fc::security_saas_unmanaged` | External / unmanaged security resource |
 
 </details>
+
+<details>
+<summary>AI (2 functions)</summary>
+
+| Function | Description |
+|---|---|
+| `provider::fc::ai_agentic_platform` | Governed runtime for AI agents |
+| `provider::fc::ai_saas_unmanaged` | External AI / LLM service |
+
+</details>
+
+#### Secrets
+
+A secret never goes into a blueprint. Define it on the environment, and reference it by short name with `provider::fc::secret_ref("<short-name>")`. The reference works in any parameter or link setting, and the agent resolves it from the environment secret store at reconciliation time. Unmanaged components require one:
+
+```hcl
+locals {
+  openai = provider::fc::ai_saas_unmanaged({
+    id     = "openai"
+    secret = provider::fc::secret_ref("openai-api-key")
+  })
+}
+```
 
 ### Not in Scope
 
@@ -155,8 +190,8 @@ This provider does **not** manage:
 
 ## Requirements
 
-- [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.1
-- [Go](https://golang.org/doc/install) >= 1.24 (to build the provider)
+- [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.8 (provider functions)
+- [Go](https://golang.org/doc/install) >= 1.26 (to build the provider)
 - A [Fractal Cloud](https://fractal.cloud) account with a service account
 
 ## Getting Started
@@ -234,8 +269,9 @@ locals {
   })
 
   db_platform = provider::fc::storage_paas_relational_dbms({
-    id           = "database-platform"
-    display_name = "Database Platform"
+    id             = "database-platform"
+    display_name   = "Database Platform"
+    engine_version = "16"
   })
 
   app_database = provider::fc::storage_paas_relational_database({
@@ -249,10 +285,13 @@ locals {
     display_name    = "API Service"
     container_image = "my-registry/api-service:latest"
     container_port  = 8080
-    cpu             = "512"
-    memory          = "1024"
-    desired_count   = 2
+    cpu             = "500m"
+    memory          = "1Gi"
+    replicas        = 2
     platform        = local.k8s_cluster  # type-checked reference
+    links = [
+      { target = local.app_database, settings = { access = "read-write" } },
+    ]
   })
 }
 

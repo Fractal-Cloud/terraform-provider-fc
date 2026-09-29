@@ -42,3 +42,4 @@ bigdata_paas_ml_experiment(config object) object
 | `description` | String | No | Description of the component's purpose. |
 | `platform` | Component Object | No | A Distributed Data Processing component to add as a dependency. Must be a component returned by `bigdata_paas_distributed_data_processing`. |
 | `experiment_name` | String | No | Name or path of the ML experiment. |
+| `extra_parameters` | Map of String | No | Additional parameters for keys the chosen offer reads that have no attribute here. A key an attribute already sets is rejected. JSON object or array strings (e.g. from `jsonencode()` or `secret_ref()`) are sent as JSON. |

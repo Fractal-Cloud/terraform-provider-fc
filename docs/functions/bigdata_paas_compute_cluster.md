@@ -60,3 +60,4 @@ bigdata_paas_compute_cluster(config object) object
 | `pypi_libraries` | List of String | No | List of PyPI packages to install on the cluster. |
 | `maven_libraries` | List of String | No | List of Maven coordinates to install on the cluster. |
 | `links` | List of Link Object | No | Links to other components with optional settings. Each link has a `target` (Component Object) and optional `settings` (Map of String). |
+| `extra_parameters` | Map of String | No | Additional parameters for keys the chosen offer reads that have no attribute here. A key an attribute already sets is rejected. JSON object or array strings (e.g. from `jsonencode()` or `secret_ref()`) are sent as JSON. |

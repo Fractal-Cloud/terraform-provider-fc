@@ -48,3 +48,4 @@ bigdata_paas_distributed_data_processing(config object) object
 | `display_name` | String | No | Human-readable name for the component. |
 | `description` | String | No | Description of the component's purpose. |
 | `links` | List of Link Object | No | Links to other components with optional settings. Each link has a `target` (Component Object) and optional `settings` (Map of String). |
+| `extra_parameters` | Map of String | No | Additional parameters for keys the chosen offer reads that have no attribute here. A key an attribute already sets is rejected. JSON object or array strings (e.g. from `jsonencode()` or `secret_ref()`) are sent as JSON. |

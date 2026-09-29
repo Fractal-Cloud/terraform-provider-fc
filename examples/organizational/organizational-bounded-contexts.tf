@@ -3,14 +3,14 @@ data "fc_organization" "existing_org" {
 }
 
 resource "fc_organizational_bounded_context" "new_bc" {
-  short_name = "new-bc"
+  short_name      = "new-bc"
   organization_id = data.fc_organization.existing_org.id
-  display_name = "New Bounded Context"
-  description = "Bounded Context created through Terraform provider"
+  display_name    = "New Bounded Context"
+  description     = "Bounded Context created through Terraform provider"
 }
 
 data "fc_organizational_bounded_context" "existing_bounded_context" {
-  short_name = "existing-resource-group"
+  short_name      = "existing-bounded-context"
   organization_id = data.fc_organization.existing_org.id
 }
 

@@ -46,6 +46,7 @@ network_and_compute_paas_container_platform(config object) object
 | `display_name` | String | No | Human-readable name for the component. |
 | `description` | String | No | Description of the component's purpose. |
 | `node_pools` | List of Object | No | List of node pool configuration objects. See fields below. |
+| `extra_parameters` | Map of String | No | Additional parameters for keys the chosen offer reads that have no attribute here. A key an attribute already sets is rejected. JSON object or array strings (e.g. from `jsonencode()` or `secret_ref()`) are sent as JSON. |
 
 ### Node Pool Object
 
