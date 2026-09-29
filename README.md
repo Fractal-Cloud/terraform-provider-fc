@@ -202,7 +202,7 @@ This provider does **not** manage:
 terraform {
   required_providers {
     fc = {
-      source  = "registry.terraform.io/fractalcloud/fc"
+      source  = "registry.terraform.io/fractal-cloud/fc"
       version = "~> 0.1.0"
     }
   }
@@ -393,7 +393,7 @@ To use a locally built provider, add a dev override to your `~/.terraformrc`:
 ```hcl
 provider_installation {
   dev_overrides {
-    "registry.terraform.io/fractalcloud/fc" = "/path/to/your/go/bin"
+    "registry.terraform.io/fractal-cloud/fc" = "/path/to/your/go/bin"
   }
   direct {}
 }

@@ -28,7 +28,7 @@ Environment variables are used as defaults and can be overridden by HCL attribut
 terraform {
   required_providers {
     fc = {
-      source  = "fractalcloud/fc"
+      source  = "fractal-cloud/fc"
       version = "~> 0.1"
     }
   }

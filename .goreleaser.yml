@@ -1,5 +1,9 @@
 version: 2
 
+# The Terraform Registry requires every asset to be named after the repository,
+# terraform-provider-fc, whatever directory the release is built from.
+project_name: terraform-provider-fc
+
 before:
   hooks:
     - go mod tidy
@@ -28,6 +32,11 @@ archives:
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
+  # The Terraform Registry reads the protocol version from the manifest, so it
+  # has to be listed in the signed checksums as well as attached to the release.
+  extra_files:
+    - glob: "terraform-registry-manifest.json"
+      name_template: "{{ .ProjectName }}_{{ .Version }}_manifest.json"
   name_template: "{{ .ProjectName }}_{{ .Version }}_SHA256SUMS"
   algorithm: sha256
 
@@ -43,6 +52,9 @@ signs:
       - "${artifact}"
 
 release:
+  extra_files:
+    - glob: "terraform-registry-manifest.json"
+      name_template: "{{ .ProjectName }}_{{ .Version }}_manifest.json"
   draft: false
 
 changelog:

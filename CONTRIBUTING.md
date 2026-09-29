@@ -47,7 +47,7 @@ To test the provider locally against a Fractal Cloud account, add a dev override
 ```hcl
 provider_installation {
   dev_overrides {
-    "registry.terraform.io/fractalcloud/fc" = "/path/to/your/go/bin"
+    "registry.terraform.io/fractal-cloud/fc" = "/path/to/your/go/bin"
   }
   direct {}
 }

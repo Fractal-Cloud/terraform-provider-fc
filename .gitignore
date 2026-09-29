@@ -33,3 +33,5 @@ go.work.sum
 secret.txt
 .idea
 *.tfstate*
+# GoReleaser output
+dist/
