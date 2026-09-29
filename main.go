@@ -27,7 +27,7 @@ func main() {
 	flag.Parse()
 
 	opts := providerserver.ServeOpts{
-		Address: "registry.terraform.io/fractalcloud/fc",
+		Address: "registry.terraform.io/fractal-cloud/fc",
 		Debug:   debug,
 	}
 
