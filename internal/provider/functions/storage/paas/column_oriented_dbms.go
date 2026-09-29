@@ -30,11 +30,12 @@ func (f *StoragePaasColumnOrientedDbmsFunction) Definition(_ context.Context, _ 
 			function.ObjectParameter{
 				Name:        "config",
 				Description: "Column-Oriented DBMS configuration",
-				AttributeTypes: map[string]attr.Type{
-					"id":           types.StringType,
-					"display_name": types.StringType,
-					"description":  types.StringType,
-				},
+				CustomType: components.NewConfigObjectType(map[string]attr.Type{
+					"id":               types.StringType,
+					"display_name":     types.StringType,
+					"description":      types.StringType,
+					"extra_parameters": components.ParametersAttrType,
+				}, "id"),
 			},
 		},
 		Return: components.ComponentReturn(),
@@ -42,9 +43,10 @@ func (f *StoragePaasColumnOrientedDbmsFunction) Definition(_ context.Context, _ 
 }
 
 type storagePaasColumnOrientedDbmsConfig struct {
-	Id          types.String `tfsdk:"id"`
-	DisplayName types.String `tfsdk:"display_name"`
-	Description types.String `tfsdk:"description"`
+	Id              types.String `tfsdk:"id"`
+	DisplayName     types.String `tfsdk:"display_name"`
+	Description     types.String `tfsdk:"description"`
+	ExtraParameters types.Map    `tfsdk:"extra_parameters"`
 }
 
 func (f *StoragePaasColumnOrientedDbmsFunction) Run(ctx context.Context, req function.RunRequest, resp *function.RunResponse) {
@@ -54,13 +56,19 @@ func (f *StoragePaasColumnOrientedDbmsFunction) Run(ctx context.Context, req fun
 		return
 	}
 
+	parameters, funcErr := components.WithExtraParameters(nil, config.ExtraParameters)
+	if funcErr != nil {
+		resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
+		return
+	}
+
 	result, funcErr := components.BuildComponent(
 		config.Id.ValueString(),
 		"Storage.PaaS.ColumnOrientedDbms",
 		components.OptionalString(config.DisplayName),
 		components.OptionalString(config.Description),
 		types.StringNull(),
-		nil,
+		parameters,
 		nil,
 		nil,
 	)

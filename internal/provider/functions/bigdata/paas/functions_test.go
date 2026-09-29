@@ -9,7 +9,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"fractal.cloud/terraform-provider-fc/internal/provider/components"
+	"fractal.cloud/terraform-provider-fc/internal/provider/functions/functiontest"
 )
+
+// testLinkAttrTypes is the shape of one element of a function's links list.
+var testLinkAttrTypes = map[string]attr.Type{
+	"target":   components.ComponentObjectType,
+	"settings": types.MapType{ElemType: types.StringType},
+}
 
 func buildTestComponent(t *testing.T, id, componentType string) types.Object {
 	t.Helper()
@@ -24,7 +31,7 @@ func runFunction(t *testing.T, f function.Function, args []attr.Value) *function
 	t.Helper()
 	ctx := context.Background()
 	req := function.RunRequest{
-		Arguments: function.NewArgumentsData(args),
+		Arguments: function.NewArgumentsData(functiontest.Complete(t, f, args)),
 	}
 	resp := &function.RunResponse{
 		Result: function.NewResultData(types.ObjectNull(components.ComponentAttrTypes)),
@@ -77,12 +84,12 @@ func TestDistributedDataProcessingFunction_Run(t *testing.T) {
 		"id":           types.StringType,
 		"display_name": types.StringType,
 		"description":  types.StringType,
-		"links":        types.ListType{ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}},
+		"links":        types.DynamicType,
 	}, map[string]attr.Value{
 		"id":           types.StringValue("databricks-1"),
 		"display_name": types.StringValue("My Databricks"),
 		"description":  types.StringNull(),
-		"links":        types.ListNull(types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}),
+		"links":        types.DynamicNull(),
 	})
 	if diags.HasError() {
 		t.Fatalf("failed to build config: %s", diags.Errors())
@@ -185,7 +192,7 @@ func TestComputeClusterFunction_Run(t *testing.T) {
 		"spark_conf":               types.MapType{ElemType: types.StringType},
 		"pypi_libraries":           types.ListType{ElemType: types.StringType},
 		"maven_libraries":          types.ListType{ElemType: types.StringType},
-		"links":                    types.ListType{ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}},
+		"links":                    types.DynamicType,
 	}, map[string]attr.Value{
 		"id":                       types.StringValue("cluster-1"),
 		"display_name":             types.StringNull(),
@@ -200,7 +207,7 @@ func TestComputeClusterFunction_Run(t *testing.T) {
 		"spark_conf":               types.MapNull(types.StringType),
 		"pypi_libraries":           types.ListNull(types.StringType),
 		"maven_libraries":          types.ListNull(types.StringType),
-		"links":                    types.ListNull(types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}),
+		"links":                    types.DynamicNull(),
 	})
 	if diags.HasError() {
 		t.Fatalf("failed to build config: %s", diags.Errors())
@@ -267,7 +274,7 @@ func TestComputeClusterFunction_Run_AllParams(t *testing.T) {
 		"spark_conf":               types.MapType{ElemType: types.StringType},
 		"pypi_libraries":           types.ListType{ElemType: types.StringType},
 		"maven_libraries":          types.ListType{ElemType: types.StringType},
-		"links":                    types.ListType{ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}},
+		"links":                    types.DynamicType,
 	}, map[string]attr.Value{
 		"id":                       types.StringValue("cluster-2"),
 		"display_name":             types.StringValue("Full Cluster"),
@@ -282,7 +289,7 @@ func TestComputeClusterFunction_Run_AllParams(t *testing.T) {
 		"spark_conf":               sparkConf,
 		"pypi_libraries":           pypiLibs,
 		"maven_libraries":          mavenLibs,
-		"links":                    types.ListNull(types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}),
+		"links":                    types.DynamicNull(),
 	})
 	if diags.HasError() {
 		t.Fatalf("failed to build config: %s", diags.Errors())
@@ -531,7 +538,7 @@ func TestDistributedDataProcessingFunction_Run_WithLinks(t *testing.T) {
 		t.Fatalf("failed to build settings: %s", diags.Errors())
 	}
 
-	linkObj, diags := types.ObjectValue(components.GenericLinkAttrTypes, map[string]attr.Value{
+	linkObj, diags := types.ObjectValue(testLinkAttrTypes, map[string]attr.Value{
 		"target":   datalake,
 		"settings": settingsMap,
 	})
@@ -539,7 +546,7 @@ func TestDistributedDataProcessingFunction_Run_WithLinks(t *testing.T) {
 		t.Fatalf("failed to build link: %s", diags.Errors())
 	}
 
-	linkList, diags := types.ListValue(types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}, []attr.Value{linkObj})
+	linkList, diags := types.ListValue(types.ObjectType{AttrTypes: testLinkAttrTypes}, []attr.Value{linkObj})
 	if diags.HasError() {
 		t.Fatalf("failed to build link list: %s", diags.Errors())
 	}
@@ -548,12 +555,12 @@ func TestDistributedDataProcessingFunction_Run_WithLinks(t *testing.T) {
 		"id":           types.StringType,
 		"display_name": types.StringType,
 		"description":  types.StringType,
-		"links":        types.ListType{ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}},
+		"links":        types.DynamicType,
 	}, map[string]attr.Value{
 		"id":           types.StringValue("spark-platform"),
 		"display_name": types.StringValue("Spark Platform"),
 		"description":  types.StringNull(),
-		"links":        linkList,
+		"links":        types.DynamicValue(linkList),
 	})
 	if diags.HasError() {
 		t.Fatalf("failed to build config: %s", diags.Errors())

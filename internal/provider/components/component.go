@@ -36,20 +36,6 @@ var ComponentAttrTypes = map[string]attr.Type{
 // ComponentObjectType is the ObjectType for a component reference in function parameters.
 var ComponentObjectType = types.ObjectType{AttrTypes: ComponentAttrTypes}
 
-// GenericLinkAttrTypes defines the object attributes for a generic link
-// used in function parameters where settings are arbitrary key-value pairs.
-// The target is a full component object for type-safe references.
-var GenericLinkAttrTypes = map[string]attr.Type{
-	"target":   ComponentObjectType,
-	"settings": types.MapType{ElemType: types.StringType},
-}
-
-// GenericLinkConfig is the Go struct for a generic link function parameter.
-type GenericLinkConfig struct {
-	Target   types.Object `tfsdk:"target"`
-	Settings types.Map    `tfsdk:"settings"`
-}
-
 // ComponentLink represents a resolved link ready to be set on the component.
 type ComponentLink struct {
 	ComponentId string
@@ -220,31 +206,6 @@ func ExtractDependency(obj types.Object, expectedType string) (string, *function
 	return ExtractComponentId(obj)
 }
 
-// GenericLinksToComponentLinks converts generic link configs to ComponentLinks.
-func GenericLinksToComponentLinks(genericLinks []GenericLinkConfig) ([]ComponentLink, *function.FuncError) {
-	result := make([]ComponentLink, len(genericLinks))
-	for i, gl := range genericLinks {
-		targetId, err := ExtractComponentId(gl.Target)
-		if err != nil {
-			return nil, err
-		}
-
-		var settings map[string]string
-		if !gl.Settings.IsNull() && !gl.Settings.IsUnknown() {
-			settings = make(map[string]string, len(gl.Settings.Elements()))
-			for k, v := range gl.Settings.Elements() {
-				settings[k] = v.(types.String).ValueString()
-			}
-		}
-
-		result[i] = ComponentLink{
-			ComponentId: targetId,
-			Settings:    settings,
-		}
-	}
-	return result, nil
-}
-
 // SgMembershipLinks converts a list of security group component objects to membership ComponentLinks.
 func SgMembershipLinks(sgObjects []types.Object) ([]ComponentLink, *function.FuncError) {
 	result := make([]ComponentLink, len(sgObjects))
@@ -267,4 +228,36 @@ func OptionalString(v types.String) types.String {
 		return types.StringNull()
 	}
 	return v
+}
+
+// ParametersAttrType is the type of a function's `extra_parameters` attribute:
+// extra parameters, for keys an offer reads that the function has no
+// attribute for. Values follow the fc_fractal convention (a JSON object or
+// array string is sent as JSON; secret_ref() output is one).
+var ParametersAttrType = types.MapType{ElemType: types.StringType}
+
+// WithExtraParameters returns the parameters a function derived from its
+// attributes plus the caller's `extra_parameters`. A key set both ways is an error
+// rather than a silent override, because the attribute usually validates or
+// translates the value.
+func WithExtraParameters(derived map[string]string, extra types.Map) (map[string]string, *function.FuncError) {
+	if extra.IsNull() || extra.IsUnknown() || len(extra.Elements()) == 0 {
+		return derived, nil
+	}
+	merged := make(map[string]string, len(derived)+len(extra.Elements()))
+	for k, v := range derived {
+		merged[k] = v
+	}
+	for k, v := range extra.Elements() {
+		s, ok := v.(types.String)
+		if !ok || s.IsNull() || s.IsUnknown() {
+			return nil, function.NewFuncError(fmt.Sprintf("extra_parameters.%s must be a known string", k))
+		}
+		if _, taken := merged[k]; taken {
+			return nil, function.NewFuncError(fmt.Sprintf(
+				"extra_parameters.%s is already set by one of this function's attributes; set it there instead", k))
+		}
+		merged[k] = s.ValueString()
+	}
+	return merged, nil
 }

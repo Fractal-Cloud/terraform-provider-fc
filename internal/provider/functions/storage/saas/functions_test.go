@@ -9,13 +9,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"fractal.cloud/terraform-provider-fc/internal/provider/components"
+	"fractal.cloud/terraform-provider-fc/internal/provider/functions/functiontest"
 )
 
 func runFunction(t *testing.T, f function.Function, args []attr.Value) *function.RunResponse {
 	t.Helper()
 	ctx := context.Background()
 	req := function.RunRequest{
-		Arguments: function.NewArgumentsData(args),
+		Arguments: function.NewArgumentsData(functiontest.Complete(t, f, args)),
 	}
 	resp := &function.RunResponse{
 		Result: function.NewResultData(types.ObjectNull(components.ComponentAttrTypes)),

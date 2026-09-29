@@ -33,7 +33,7 @@ func (f *BigdataPaasDataProcessingJobFunction) Definition(_ context.Context, _ f
 			function.ObjectParameter{
 				Name:        "config",
 				Description: "Data Processing Job configuration",
-				AttributeTypes: map[string]attr.Type{
+				CustomType: components.NewConfigObjectType(map[string]attr.Type{
 					"id":               types.StringType,
 					"display_name":     types.StringType,
 					"description":      types.StringType,
@@ -48,7 +48,8 @@ func (f *BigdataPaasDataProcessingJobFunction) Definition(_ context.Context, _ f
 					"max_retries":      types.Int64Type,
 					"existing_cluster": types.BoolType,
 					"parameters":       types.ListType{ElemType: types.StringType},
-				},
+					"extra_parameters": components.ParametersAttrType,
+				}, "id"),
 			},
 		},
 		Return: components.ComponentReturn(),
@@ -70,6 +71,7 @@ type bigdataPaasDataProcessingJobConfig struct {
 	MaxRetries      types.Int64  `tfsdk:"max_retries"`
 	ExistingCluster types.Bool   `tfsdk:"existing_cluster"`
 	Parameters      types.List   `tfsdk:"parameters"`
+	ExtraParameters types.Map    `tfsdk:"extra_parameters"`
 }
 
 func (f *BigdataPaasDataProcessingJobFunction) Run(ctx context.Context, req function.RunRequest, resp *function.RunResponse) {
@@ -132,13 +134,19 @@ func (f *BigdataPaasDataProcessingJobFunction) Run(ctx context.Context, req func
 		deps = append(deps, platformId)
 	}
 
+	parameters, funcErr := components.WithExtraParameters(params, config.ExtraParameters)
+	if funcErr != nil {
+		resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
+		return
+	}
+
 	result, funcErr := components.BuildComponent(
 		config.Id.ValueString(),
 		"BigData.PaaS.DataProcessingJob",
 		components.OptionalString(config.DisplayName),
 		components.OptionalString(config.Description),
 		types.StringNull(),
-		params,
+		parameters,
 		deps,
 		nil,
 	)

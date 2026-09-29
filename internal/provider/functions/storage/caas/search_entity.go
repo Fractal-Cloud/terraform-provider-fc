@@ -31,12 +31,13 @@ func (f *StorageCaasSearchEntityFunction) Definition(_ context.Context, _ functi
 			function.ObjectParameter{
 				Name:        "config",
 				Description: "Search Entity configuration",
-				AttributeTypes: map[string]attr.Type{
-					"id":           types.StringType,
-					"display_name": types.StringType,
-					"description":  types.StringType,
-					"search":       components.ComponentObjectType,
-				},
+				CustomType: components.NewConfigObjectType(map[string]attr.Type{
+					"id":               types.StringType,
+					"display_name":     types.StringType,
+					"description":      types.StringType,
+					"search":           components.ComponentObjectType,
+					"extra_parameters": components.ParametersAttrType,
+				}, "id"),
 			},
 		},
 		Return: components.ComponentReturn(),
@@ -44,10 +45,11 @@ func (f *StorageCaasSearchEntityFunction) Definition(_ context.Context, _ functi
 }
 
 type storageCaasSearchEntityConfig struct {
-	Id          types.String `tfsdk:"id"`
-	DisplayName types.String `tfsdk:"display_name"`
-	Description types.String `tfsdk:"description"`
-	Search      types.Object `tfsdk:"search"`
+	Id              types.String `tfsdk:"id"`
+	DisplayName     types.String `tfsdk:"display_name"`
+	Description     types.String `tfsdk:"description"`
+	Search          types.Object `tfsdk:"search"`
+	ExtraParameters types.Map    `tfsdk:"extra_parameters"`
 }
 
 func (f *StorageCaasSearchEntityFunction) Run(ctx context.Context, req function.RunRequest, resp *function.RunResponse) {
@@ -67,13 +69,19 @@ func (f *StorageCaasSearchEntityFunction) Run(ctx context.Context, req function.
 		deps = append(deps, searchId)
 	}
 
+	parameters, funcErr := components.WithExtraParameters(nil, config.ExtraParameters)
+	if funcErr != nil {
+		resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
+		return
+	}
+
 	result, funcErr := components.BuildComponent(
 		config.Id.ValueString(),
 		"Storage.CaaS.SearchEntity",
 		components.OptionalString(config.DisplayName),
 		components.OptionalString(config.Description),
 		types.StringNull(),
-		nil,
+		parameters,
 		deps,
 		nil,
 	)

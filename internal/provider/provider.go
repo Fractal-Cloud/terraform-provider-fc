@@ -23,6 +23,7 @@ import (
 	nc_saas "fractal.cloud/terraform-provider-fc/internal/provider/functions/network_and_compute/saas"
 	obs_caas "fractal.cloud/terraform-provider-fc/internal/provider/functions/observability/caas"
 	obs_saas "fractal.cloud/terraform-provider-fc/internal/provider/functions/observability/saas"
+	"fractal.cloud/terraform-provider-fc/internal/provider/functions/secrets"
 	sec_caas "fractal.cloud/terraform-provider-fc/internal/provider/functions/security/caas"
 	sec_saas "fractal.cloud/terraform-provider-fc/internal/provider/functions/security/saas"
 	st_caas "fractal.cloud/terraform-provider-fc/internal/provider/functions/storage/caas"
@@ -189,6 +190,9 @@ func (p *fractalCloudProvider) Resources(_ context.Context) []func() resource.Re
 // Functions defines the provider functions for building blueprint components.
 func (p *fractalCloudProvider) Functions(_ context.Context) []func() function.Function {
 	return []func() function.Function{
+		// Values
+		secrets.NewSecretRefFunction,
+
 		// NetworkAndCompute
 		nc_iaas.NewVirtualNetworkFunction,
 		nc_iaas.NewSubnetFunction,

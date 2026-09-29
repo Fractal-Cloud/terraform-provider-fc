@@ -30,11 +30,12 @@ func (f *StoragePaasFilesAndBlobsFunction) Definition(_ context.Context, _ funct
 			function.ObjectParameter{
 				Name:        "config",
 				Description: "File & Blob Storage configuration",
-				AttributeTypes: map[string]attr.Type{
-					"id":           types.StringType,
-					"display_name": types.StringType,
-					"description":  types.StringType,
-				},
+				CustomType: components.NewConfigObjectType(map[string]attr.Type{
+					"id":               types.StringType,
+					"display_name":     types.StringType,
+					"description":      types.StringType,
+					"extra_parameters": components.ParametersAttrType,
+				}, "id"),
 			},
 		},
 		Return: components.ComponentReturn(),
@@ -42,9 +43,10 @@ func (f *StoragePaasFilesAndBlobsFunction) Definition(_ context.Context, _ funct
 }
 
 type storagePaasFilesAndBlobsConfig struct {
-	Id          types.String `tfsdk:"id"`
-	DisplayName types.String `tfsdk:"display_name"`
-	Description types.String `tfsdk:"description"`
+	Id              types.String `tfsdk:"id"`
+	DisplayName     types.String `tfsdk:"display_name"`
+	Description     types.String `tfsdk:"description"`
+	ExtraParameters types.Map    `tfsdk:"extra_parameters"`
 }
 
 func (f *StoragePaasFilesAndBlobsFunction) Run(ctx context.Context, req function.RunRequest, resp *function.RunResponse) {
@@ -54,13 +56,19 @@ func (f *StoragePaasFilesAndBlobsFunction) Run(ctx context.Context, req function
 		return
 	}
 
+	parameters, funcErr := components.WithExtraParameters(nil, config.ExtraParameters)
+	if funcErr != nil {
+		resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
+		return
+	}
+
 	result, funcErr := components.BuildComponent(
 		config.Id.ValueString(),
 		"Storage.PaaS.FilesAndBlobs",
 		components.OptionalString(config.DisplayName),
 		components.OptionalString(config.Description),
 		types.StringNull(),
-		nil,
+		parameters,
 		nil,
 		nil,
 	)

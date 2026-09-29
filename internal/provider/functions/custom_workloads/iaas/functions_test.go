@@ -9,7 +9,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"fractal.cloud/terraform-provider-fc/internal/provider/components"
+	"fractal.cloud/terraform-provider-fc/internal/provider/functions/functiontest"
 )
+
+// testLinkAttrTypes is the shape of one element of a function's links list.
+var testLinkAttrTypes = map[string]attr.Type{
+	"target":   components.ComponentObjectType,
+	"settings": types.MapType{ElemType: types.StringType},
+}
 
 func buildTestComponent(t *testing.T, id, componentType string) types.Object {
 	t.Helper()
@@ -24,7 +31,7 @@ func runFunction(t *testing.T, f function.Function, args []attr.Value) *function
 	t.Helper()
 	ctx := context.Background()
 	req := function.RunRequest{
-		Arguments: function.NewArgumentsData(args),
+		Arguments: function.NewArgumentsData(functiontest.Complete(t, f, args)),
 	}
 	resp := &function.RunResponse{
 		Result: function.NewResultData(types.ObjectNull(components.ComponentAttrTypes)),
@@ -87,7 +94,7 @@ func TestWorkloadFunction_Run_Minimal(t *testing.T) {
 		"desired_count":   types.Int64Type,
 		"vm":              components.ComponentObjectType,
 		"subnet":          components.ComponentObjectType,
-		"links":           types.ListType{ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}},
+		"links":           types.DynamicType,
 		"security_groups": types.ListType{ElemType: components.ComponentObjectType},
 	}, map[string]attr.Value{
 		"id":              types.StringValue("workload-1"),
@@ -101,7 +108,7 @@ func TestWorkloadFunction_Run_Minimal(t *testing.T) {
 		"desired_count":   types.Int64Null(),
 		"vm":              types.ObjectNull(components.ComponentAttrTypes),
 		"subnet":          types.ObjectNull(components.ComponentAttrTypes),
-		"links":           types.ListNull(types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}),
+		"links":           types.DynamicNull(),
 		"security_groups": types.ListNull(components.ComponentObjectType),
 	})
 	if diags.HasError() {
@@ -136,7 +143,7 @@ func TestWorkloadFunction_Run_WithDepsAndLinks(t *testing.T) {
 	linkSettings, _ := types.MapValue(types.StringType, map[string]attr.Value{
 		"fromPort": types.StringValue("8080"),
 	})
-	genericLink, diags := types.ObjectValue(components.GenericLinkAttrTypes, map[string]attr.Value{
+	genericLink, diags := types.ObjectValue(testLinkAttrTypes, map[string]attr.Value{
 		"target":   target,
 		"settings": linkSettings,
 	})
@@ -144,7 +151,7 @@ func TestWorkloadFunction_Run_WithDepsAndLinks(t *testing.T) {
 		t.Fatalf("failed to build generic link: %s", diags.Errors())
 	}
 
-	linkList, diags := types.ListValue(types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}, []attr.Value{genericLink})
+	linkList, diags := types.ListValue(types.ObjectType{AttrTypes: testLinkAttrTypes}, []attr.Value{genericLink})
 	if diags.HasError() {
 		t.Fatalf("failed to build link list: %s", diags.Errors())
 	}
@@ -166,7 +173,7 @@ func TestWorkloadFunction_Run_WithDepsAndLinks(t *testing.T) {
 		"desired_count":   types.Int64Type,
 		"vm":              components.ComponentObjectType,
 		"subnet":          components.ComponentObjectType,
-		"links":           types.ListType{ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}},
+		"links":           types.DynamicType,
 		"security_groups": types.ListType{ElemType: components.ComponentObjectType},
 	}, map[string]attr.Value{
 		"id":              types.StringValue("workload-1"),
@@ -180,7 +187,7 @@ func TestWorkloadFunction_Run_WithDepsAndLinks(t *testing.T) {
 		"desired_count":   types.Int64Value(3),
 		"vm":              vm,
 		"subnet":          subnet,
-		"links":           linkList,
+		"links":           types.DynamicValue(linkList),
 		"security_groups": sgList,
 	})
 	if diags.HasError() {
@@ -273,7 +280,7 @@ func TestWorkloadFunction_Run_WrongVmType(t *testing.T) {
 		"desired_count":   types.Int64Type,
 		"vm":              components.ComponentObjectType,
 		"subnet":          components.ComponentObjectType,
-		"links":           types.ListType{ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}},
+		"links":           types.DynamicType,
 		"security_groups": types.ListType{ElemType: components.ComponentObjectType},
 	}, map[string]attr.Value{
 		"id":              types.StringValue("workload-1"),
@@ -287,7 +294,7 @@ func TestWorkloadFunction_Run_WrongVmType(t *testing.T) {
 		"desired_count":   types.Int64Null(),
 		"vm":              wrongVm,
 		"subnet":          types.ObjectNull(components.ComponentAttrTypes),
-		"links":           types.ListNull(types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}),
+		"links":           types.DynamicNull(),
 		"security_groups": types.ListNull(components.ComponentObjectType),
 	})
 	if diags.HasError() {

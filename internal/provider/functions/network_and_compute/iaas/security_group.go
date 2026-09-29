@@ -40,7 +40,7 @@ func (f *SecurityGroupFunction) Definition(_ context.Context, _ function.Definit
 			function.ObjectParameter{
 				Name:        "config",
 				Description: "SecurityGroup configuration",
-				AttributeTypes: map[string]attr.Type{
+				CustomType: components.NewConfigObjectType(map[string]attr.Type{
 					"id":           types.StringType,
 					"display_name": types.StringType,
 					"description":  types.StringType,
@@ -48,7 +48,8 @@ func (f *SecurityGroupFunction) Definition(_ context.Context, _ function.Definit
 					"ingress_rules": types.ListType{
 						ElemType: types.ObjectType{AttrTypes: ingressRuleAttrTypes},
 					},
-				},
+					"extra_parameters": components.ParametersAttrType,
+				}, "id"),
 			},
 		},
 		Return: components.ComponentReturn(),
@@ -56,11 +57,12 @@ func (f *SecurityGroupFunction) Definition(_ context.Context, _ function.Definit
 }
 
 type securityGroupConfig struct {
-	Id           types.String `tfsdk:"id"`
-	DisplayName  types.String `tfsdk:"display_name"`
-	Description  types.String `tfsdk:"description"`
-	Vpc          types.Object `tfsdk:"vpc"`
-	IngressRules types.List   `tfsdk:"ingress_rules"`
+	Id              types.String `tfsdk:"id"`
+	DisplayName     types.String `tfsdk:"display_name"`
+	Description     types.String `tfsdk:"description"`
+	Vpc             types.Object `tfsdk:"vpc"`
+	IngressRules    types.List   `tfsdk:"ingress_rules"`
+	ExtraParameters types.Map    `tfsdk:"extra_parameters"`
 }
 
 type ingressRuleConfig struct {
@@ -148,13 +150,19 @@ func (f *SecurityGroupFunction) Run(ctx context.Context, req function.RunRequest
 		deps = append(deps, vpcId)
 	}
 
+	parameters, funcErr := components.WithExtraParameters(params, config.ExtraParameters)
+	if funcErr != nil {
+		resp.Error = function.ConcatFuncErrors(resp.Error, funcErr)
+		return
+	}
+
 	result, funcErr := components.BuildComponent(
 		config.Id.ValueString(),
 		"NetworkAndCompute.IaaS.SecurityGroup",
 		components.OptionalString(config.DisplayName),
 		components.OptionalString(config.Description),
 		types.StringNull(),
-		params,
+		parameters,
 		deps,
 		nil,
 	)

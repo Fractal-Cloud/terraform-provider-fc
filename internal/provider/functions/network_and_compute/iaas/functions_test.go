@@ -10,9 +10,17 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"fractal.cloud/terraform-provider-fc/internal/provider/components"
+	"fractal.cloud/terraform-provider-fc/internal/provider/functions/functiontest"
 )
 
 // buildTestComponent is a helper that builds a minimal component object with just id and type.
+
+// testLinkAttrTypes is the shape of one element of a function's links list.
+var testLinkAttrTypes = map[string]attr.Type{
+	"target":   components.ComponentObjectType,
+	"settings": types.MapType{ElemType: types.StringType},
+}
+
 func buildTestComponent(t *testing.T, id, componentType string) types.Object {
 	t.Helper()
 	obj, err := components.BuildComponent(id, componentType, types.StringNull(), types.StringNull(), types.StringNull(), nil, nil, nil)
@@ -27,7 +35,7 @@ func runFunction(t *testing.T, f function.Function, args []attr.Value) *function
 	t.Helper()
 	ctx := context.Background()
 	req := function.RunRequest{
-		Arguments: function.NewArgumentsData(args),
+		Arguments: function.NewArgumentsData(functiontest.Complete(t, f, args)),
 	}
 	resp := &function.RunResponse{
 		Result: function.NewResultData(types.ObjectNull(components.ComponentAttrTypes)),
@@ -184,13 +192,13 @@ func TestVirtualNetworkFunction_Run_Minimal(t *testing.T) {
 		"display_name": types.StringType,
 		"description":  types.StringType,
 		"cidr_block":   types.StringType,
-		"links":        types.ListType{ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}},
+		"links":        types.DynamicType,
 	}, map[string]attr.Value{
 		"id":           types.StringValue("my-vpc"),
 		"display_name": types.StringNull(),
 		"description":  types.StringNull(),
 		"cidr_block":   types.StringNull(),
-		"links":        types.ListNull(types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}),
+		"links":        types.DynamicNull(),
 	})
 	if diags.HasError() {
 		t.Fatalf("failed to build config: %s", diags.Errors())
@@ -217,13 +225,13 @@ func TestVirtualNetworkFunction_Run_WithParams(t *testing.T) {
 		"display_name": types.StringType,
 		"description":  types.StringType,
 		"cidr_block":   types.StringType,
-		"links":        types.ListType{ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}},
+		"links":        types.DynamicType,
 	}, map[string]attr.Value{
 		"id":           types.StringValue("vpc-1"),
 		"display_name": types.StringValue("My VPC"),
 		"description":  types.StringValue("Test VPC"),
 		"cidr_block":   types.StringValue("10.0.0.0/16"),
-		"links":        types.ListNull(types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}),
+		"links":        types.DynamicNull(),
 	})
 	if diags.HasError() {
 		t.Fatalf("failed to build config: %s", diags.Errors())
@@ -474,14 +482,14 @@ func TestVirtualMachineFunction_Run_Minimal(t *testing.T) {
 		"display_name":    types.StringType,
 		"description":     types.StringType,
 		"subnet":          components.ComponentObjectType,
-		"links":           types.ListType{ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}},
+		"links":           types.DynamicType,
 		"security_groups": types.ListType{ElemType: components.ComponentObjectType},
 	}, map[string]attr.Value{
 		"id":              types.StringValue("vm-1"),
 		"display_name":    types.StringNull(),
 		"description":     types.StringNull(),
 		"subnet":          types.ObjectNull(components.ComponentAttrTypes),
-		"links":           types.ListNull(types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}),
+		"links":           types.DynamicNull(),
 		"security_groups": types.ListNull(components.ComponentObjectType),
 	})
 	if diags.HasError() {
@@ -509,7 +517,7 @@ func TestVirtualMachineFunction_Run_WithDepsAndLinks(t *testing.T) {
 	linkSettings, _ := types.MapValue(types.StringType, map[string]attr.Value{
 		"fromPort": types.StringValue("8080"),
 	})
-	genericLink, diags := types.ObjectValue(components.GenericLinkAttrTypes, map[string]attr.Value{
+	genericLink, diags := types.ObjectValue(testLinkAttrTypes, map[string]attr.Value{
 		"target":   target,
 		"settings": linkSettings,
 	})
@@ -517,7 +525,7 @@ func TestVirtualMachineFunction_Run_WithDepsAndLinks(t *testing.T) {
 		t.Fatalf("failed to build generic link: %s", diags.Errors())
 	}
 
-	linkList, diags := types.ListValue(types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}, []attr.Value{genericLink})
+	linkList, diags := types.ListValue(types.ObjectType{AttrTypes: testLinkAttrTypes}, []attr.Value{genericLink})
 	if diags.HasError() {
 		t.Fatalf("failed to build link list: %s", diags.Errors())
 	}
@@ -532,14 +540,14 @@ func TestVirtualMachineFunction_Run_WithDepsAndLinks(t *testing.T) {
 		"display_name":    types.StringType,
 		"description":     types.StringType,
 		"subnet":          components.ComponentObjectType,
-		"links":           types.ListType{ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}},
+		"links":           types.DynamicType,
 		"security_groups": types.ListType{ElemType: components.ComponentObjectType},
 	}, map[string]attr.Value{
 		"id":              types.StringValue("vm-1"),
 		"display_name":    types.StringValue("My VM"),
 		"description":     types.StringNull(),
 		"subnet":          subnet,
-		"links":           linkList,
+		"links":           types.DynamicValue(linkList),
 		"security_groups": sgList,
 	})
 	if diags.HasError() {
@@ -592,13 +600,13 @@ func TestLoadBalancerFunction_Run_Minimal(t *testing.T) {
 		"id":              types.StringType,
 		"display_name":    types.StringType,
 		"description":     types.StringType,
-		"links":           types.ListType{ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}},
+		"links":           types.DynamicType,
 		"security_groups": types.ListType{ElemType: components.ComponentObjectType},
 	}, map[string]attr.Value{
 		"id":              types.StringValue("lb-1"),
 		"display_name":    types.StringNull(),
 		"description":     types.StringNull(),
-		"links":           types.ListNull(types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}),
+		"links":           types.DynamicNull(),
 		"security_groups": types.ListNull(components.ComponentObjectType),
 	})
 	if diags.HasError() {
@@ -626,7 +634,7 @@ func TestLoadBalancerFunction_Run_WithLinks(t *testing.T) {
 		"toPort":   types.StringValue("8080"),
 		"protocol": types.StringValue("tcp"),
 	})
-	genericLink, diags := types.ObjectValue(components.GenericLinkAttrTypes, map[string]attr.Value{
+	genericLink, diags := types.ObjectValue(testLinkAttrTypes, map[string]attr.Value{
 		"target":   target,
 		"settings": lbLinkSettings,
 	})
@@ -634,7 +642,7 @@ func TestLoadBalancerFunction_Run_WithLinks(t *testing.T) {
 		t.Fatalf("failed to build generic link: %s", diags.Errors())
 	}
 
-	linkList, diags := types.ListValue(types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}, []attr.Value{genericLink})
+	linkList, diags := types.ListValue(types.ObjectType{AttrTypes: testLinkAttrTypes}, []attr.Value{genericLink})
 	if diags.HasError() {
 		t.Fatalf("failed to build link list: %s", diags.Errors())
 	}
@@ -648,13 +656,13 @@ func TestLoadBalancerFunction_Run_WithLinks(t *testing.T) {
 		"id":              types.StringType,
 		"display_name":    types.StringType,
 		"description":     types.StringType,
-		"links":           types.ListType{ElemType: types.ObjectType{AttrTypes: components.GenericLinkAttrTypes}},
+		"links":           types.DynamicType,
 		"security_groups": types.ListType{ElemType: components.ComponentObjectType},
 	}, map[string]attr.Value{
 		"id":              types.StringValue("lb-1"),
 		"display_name":    types.StringValue("My LB"),
 		"description":     types.StringNull(),
-		"links":           linkList,
+		"links":           types.DynamicValue(linkList),
 		"security_groups": sgList,
 	})
 	if diags.HasError() {
