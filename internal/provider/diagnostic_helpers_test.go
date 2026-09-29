@@ -155,7 +155,7 @@ func TestMapBlueprintToState(t *testing.T) {
 			Components: []fractalCloud.Component{
 				{
 					Id:                "comp-1",
-					Type:              "BigData.PaaS.DatabricksWorkspace",
+					Type:              "BigData.PaaS.DistributedDataProcessing",
 					DisplayName:       strPtr("My Workspace"),
 					Description:       strPtr("A workspace"),
 					Version:           strPtr("v2"),
@@ -205,8 +205,8 @@ func TestMapBlueprintToState(t *testing.T) {
 		if comp.Id.ValueString() != "comp-1" {
 			t.Errorf("id: expected %q, got %q", "comp-1", comp.Id.ValueString())
 		}
-		if comp.Type.ValueString() != "BigData.PaaS.DatabricksWorkspace" {
-			t.Errorf("type: expected %q, got %q", "BigData.PaaS.DatabricksWorkspace", comp.Type.ValueString())
+		if comp.Type.ValueString() != "BigData.PaaS.DistributedDataProcessing" {
+			t.Errorf("type: expected %q, got %q", "BigData.PaaS.DistributedDataProcessing", comp.Type.ValueString())
 		}
 		if comp.DisplayName.ValueString() != "My Workspace" {
 			t.Errorf("display_name: expected %q, got %q", "My Workspace", comp.DisplayName.ValueString())
@@ -354,7 +354,7 @@ func TestMapBlueprintToState(t *testing.T) {
 		// Build a prior state model with a component that has version "v1"
 		priorComponent := ComponentModel{
 			Id:                types.StringValue("comp-versioned"),
-			Type:              types.StringValue("BigData.PaaS.DatabricksCluster"),
+			Type:              types.StringValue("BigData.PaaS.ComputeCluster"),
 			DisplayName:       types.StringValue(""),
 			Description:       types.StringValue(""),
 			Version:           types.StringValue("v1"),
@@ -383,7 +383,7 @@ func TestMapBlueprintToState(t *testing.T) {
 			Components: []fractalCloud.Component{
 				{
 					Id:      "comp-versioned",
-					Type:    "BigData.PaaS.DatabricksCluster",
+					Type:    "BigData.PaaS.ComputeCluster",
 					Version: nil, // API returns no version
 				},
 			},
@@ -411,7 +411,7 @@ func TestMapBlueprintToState(t *testing.T) {
 		// Prior state has "v1" but API returns "v3" — API wins
 		priorComponent := ComponentModel{
 			Id:                types.StringValue("comp-versioned"),
-			Type:              types.StringValue("BigData.PaaS.DatabricksCluster"),
+			Type:              types.StringValue("BigData.PaaS.ComputeCluster"),
 			DisplayName:       types.StringValue(""),
 			Description:       types.StringValue(""),
 			Version:           types.StringValue("v1"),
@@ -440,7 +440,7 @@ func TestMapBlueprintToState(t *testing.T) {
 			Components: []fractalCloud.Component{
 				{
 					Id:      "comp-versioned",
-					Type:    "BigData.PaaS.DatabricksCluster",
+					Type:    "BigData.PaaS.ComputeCluster",
 					Version: strPtr("v3"),
 				},
 			},
