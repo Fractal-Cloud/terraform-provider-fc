@@ -62,14 +62,6 @@ func (f *Function) Definition(_ context.Context, _ function.DefinitionRequest, r
 	}
 }
 
-type config struct {
-	Id              types.String `tfsdk:"id"`
-	DisplayName     types.String `tfsdk:"display_name"`
-	Description     types.String `tfsdk:"description"`
-	Secret          types.String `tfsdk:"secret"`
-	ExtraParameters types.Map    `tfsdk:"extra_parameters"`
-}
-
 func (f *Function) Run(ctx context.Context, req function.RunRequest, resp *function.RunResponse) {
 	var cfg config
 	resp.Error = function.ConcatFuncErrors(resp.Error, req.Arguments.Get(ctx, &cfg))
