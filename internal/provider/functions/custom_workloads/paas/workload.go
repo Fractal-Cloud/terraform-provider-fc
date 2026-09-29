@@ -28,6 +28,7 @@ func (f *WorkloadFunction) Definition(_ context.Context, _ function.DefinitionRe
 		Summary: "Creates a PaaS Workload blueprint component",
 		Description: "Builds a PaaS Workload component with the correct type and parameters for use in a fractal's components list. " +
 			"Subnet is a component object reference with type validation. " +
+			"container_image and container_port are written as image and port, the keys the container-based PaaS offers read. " +
 			"Use links to define runtime relationships to other components, and security_groups for SG membership.",
 		Parameters: []function.Parameter{
 			function.ObjectParameter{
@@ -39,10 +40,8 @@ func (f *WorkloadFunction) Definition(_ context.Context, _ function.DefinitionRe
 					"description":      types.StringType,
 					"container_image":  types.StringType,
 					"container_port":   types.Int64Type,
-					"container_name":   types.StringType,
 					"cpu":              types.StringType,
 					"memory":           types.StringType,
-					"desired_count":    types.Int64Type,
 					"subnet":           components.ComponentObjectType,
 					"links":            components.LinksAttrType,
 					"security_groups":  types.ListType{ElemType: components.ComponentObjectType},
@@ -60,10 +59,8 @@ type workloadConfig struct {
 	Description     types.String  `tfsdk:"description"`
 	ContainerImage  types.String  `tfsdk:"container_image"`
 	ContainerPort   types.Int64   `tfsdk:"container_port"`
-	ContainerName   types.String  `tfsdk:"container_name"`
 	Cpu             types.String  `tfsdk:"cpu"`
 	Memory          types.String  `tfsdk:"memory"`
-	DesiredCount    types.Int64   `tfsdk:"desired_count"`
 	Subnet          types.Object  `tfsdk:"subnet"`
 	Links           types.Dynamic `tfsdk:"links"`
 	SecurityGroups  types.List    `tfsdk:"security_groups"`
@@ -79,23 +76,20 @@ func (f *WorkloadFunction) Run(ctx context.Context, req function.RunRequest, res
 
 	params := map[string]string{}
 
+	// The container-based PaaS offers (Cloud Run, Container Instances) read
+	// image and port; the Web App offer deploys from git and takes its
+	// settings through extra_parameters.
 	if !config.ContainerImage.IsNull() && !config.ContainerImage.IsUnknown() {
-		params["containerImage"] = config.ContainerImage.ValueString()
+		params["image"] = config.ContainerImage.ValueString()
 	}
 	if !config.ContainerPort.IsNull() && !config.ContainerPort.IsUnknown() {
-		params["containerPort"] = fmt.Sprintf("%d", config.ContainerPort.ValueInt64())
-	}
-	if !config.ContainerName.IsNull() && !config.ContainerName.IsUnknown() {
-		params["containerName"] = config.ContainerName.ValueString()
+		params["port"] = fmt.Sprintf("%d", config.ContainerPort.ValueInt64())
 	}
 	if !config.Cpu.IsNull() && !config.Cpu.IsUnknown() {
 		params["cpu"] = config.Cpu.ValueString()
 	}
 	if !config.Memory.IsNull() && !config.Memory.IsUnknown() {
 		params["memory"] = config.Memory.ValueString()
-	}
-	if !config.DesiredCount.IsNull() && !config.DesiredCount.IsUnknown() {
-		params["desiredCount"] = fmt.Sprintf("%d", config.DesiredCount.ValueInt64())
 	}
 
 	var deps []string

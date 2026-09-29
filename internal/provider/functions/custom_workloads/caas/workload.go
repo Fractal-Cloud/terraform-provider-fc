@@ -28,6 +28,7 @@ func (f *WorkloadFunction) Definition(_ context.Context, _ function.DefinitionRe
 		Summary: "Creates a CaaS Workload blueprint component",
 		Description: "Builds a CaaS Workload component with the correct type and parameters for use in a fractal's components list. " +
 			"Platform and subnet are component object references with type validation. " +
+			"Container settings are written under the key every CaaS offer reads (containerImage and image, containerPort and port, replicas and desiredCount). " +
 			"Use links to define runtime relationships to other components, and security_groups for SG membership.",
 		Parameters: []function.Parameter{
 			function.ObjectParameter{
@@ -42,7 +43,7 @@ func (f *WorkloadFunction) Definition(_ context.Context, _ function.DefinitionRe
 					"container_name":   types.StringType,
 					"cpu":              types.StringType,
 					"memory":           types.StringType,
-					"desired_count":    types.Int64Type,
+					"replicas":         types.Int64Type,
 					"platform":         components.ComponentObjectType,
 					"subnet":           components.ComponentObjectType,
 					"links":            components.LinksAttrType,
@@ -64,7 +65,7 @@ type workloadConfig struct {
 	ContainerName   types.String  `tfsdk:"container_name"`
 	Cpu             types.String  `tfsdk:"cpu"`
 	Memory          types.String  `tfsdk:"memory"`
-	DesiredCount    types.Int64   `tfsdk:"desired_count"`
+	Replicas        types.Int64   `tfsdk:"replicas"`
 	Platform        types.Object  `tfsdk:"platform"`
 	Subnet          types.Object  `tfsdk:"subnet"`
 	Links           types.Dynamic `tfsdk:"links"`
@@ -81,11 +82,19 @@ func (f *WorkloadFunction) Run(ctx context.Context, req function.RunRequest, res
 
 	params := map[string]string{}
 
+	// The CaaS offers spell the same settings differently: Kubernetes and
+	// ECS read containerImage/containerPort, Cloud Run, Container Apps and
+	// Container Instances read image/port, and Kubernetes scales by replicas
+	// where ECS uses desiredCount. The blueprint is vendor-neutral, so each
+	// setting is written under every offer's key; an offer ignores the others.
 	if !config.ContainerImage.IsNull() && !config.ContainerImage.IsUnknown() {
 		params["containerImage"] = config.ContainerImage.ValueString()
+		params["image"] = config.ContainerImage.ValueString()
 	}
 	if !config.ContainerPort.IsNull() && !config.ContainerPort.IsUnknown() {
-		params["containerPort"] = fmt.Sprintf("%d", config.ContainerPort.ValueInt64())
+		port := fmt.Sprintf("%d", config.ContainerPort.ValueInt64())
+		params["containerPort"] = port
+		params["port"] = port
 	}
 	if !config.ContainerName.IsNull() && !config.ContainerName.IsUnknown() {
 		params["containerName"] = config.ContainerName.ValueString()
@@ -96,8 +105,10 @@ func (f *WorkloadFunction) Run(ctx context.Context, req function.RunRequest, res
 	if !config.Memory.IsNull() && !config.Memory.IsUnknown() {
 		params["memory"] = config.Memory.ValueString()
 	}
-	if !config.DesiredCount.IsNull() && !config.DesiredCount.IsUnknown() {
-		params["desiredCount"] = fmt.Sprintf("%d", config.DesiredCount.ValueInt64())
+	if !config.Replicas.IsNull() && !config.Replicas.IsUnknown() {
+		replicas := fmt.Sprintf("%d", config.Replicas.ValueInt64())
+		params["replicas"] = replicas
+		params["desiredCount"] = replicas
 	}
 
 	var deps []string
