@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"fractal.cloud/terraform-provider-fc/internal/client"
+	ai_saas "fractal.cloud/terraform-provider-fc/internal/provider/functions/ai/saas"
 	api_caas "fractal.cloud/terraform-provider-fc/internal/provider/functions/api_management/caas"
 	api_paas "fractal.cloud/terraform-provider-fc/internal/provider/functions/api_management/paas"
 	api_saas "fractal.cloud/terraform-provider-fc/internal/provider/functions/api_management/saas"
@@ -254,5 +255,8 @@ func (p *fractalCloudProvider) Functions(_ context.Context) []func() function.Fu
 		// Security
 		sec_caas.NewCaaSServiceMeshSecurityFunction,
 		sec_saas.NewSaaSUnmanagedFunction,
+
+		// AI
+		ai_saas.NewAiSaasUnmanagedFunction,
 	}
 }

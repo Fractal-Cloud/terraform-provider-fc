@@ -6,6 +6,6 @@ import (
 	"fractal.cloud/terraform-provider-fc/internal/provider/functions/unmanaged"
 )
 
-func NewBigdataSaasUnmanagedFunction() function.Function {
-	return unmanaged.New("bigdata_saas_unmanaged", "BigData.SaaS.Unmanaged", "Big Data")
+func NewAiSaasUnmanagedFunction() function.Function {
+	return unmanaged.New("ai_saas_unmanaged", "AI.SaaS.Unmanaged", "AI")
 }

@@ -44,3 +44,24 @@ func TestSecretRef_RejectsEmptyName(t *testing.T) {
 		t.Error("expected an error for an empty short name")
 	}
 }
+
+func TestParseSecretRef(t *testing.T) {
+	tests := []struct {
+		in     string
+		want   string
+		wantOk bool
+	}{
+		{`{"$envSecret":"api-key"}`, "api-key", true},
+		{`{ "$envSecret" : "api-key" }`, "api-key", true},
+		{`sk-raw-secret-value`, "", false},
+		{`{"$envSecret":""}`, "", false},
+		{`{"$envSecret":"a","other":"b"}`, "", false},
+		{`{"$envSecret":1}`, "", false},
+	}
+	for _, tt := range tests {
+		got, ok := ParseSecretRef(tt.in)
+		if got != tt.want || ok != tt.wantOk {
+			t.Errorf("ParseSecretRef(%q) = %q, %v; want %q, %v", tt.in, got, ok, tt.want, tt.wantOk)
+		}
+	}
+}

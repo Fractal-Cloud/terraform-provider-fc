@@ -66,3 +66,17 @@ func SecretRef(shortName string) (string, error) {
 	}
 	return string(b), nil
 }
+
+// ParseSecretRef reports whether v is an environment-secret reference as
+// SecretRef builds it, and returns the short name it references.
+func ParseSecretRef(v string) (string, bool) {
+	var ref map[string]any
+	if err := json.Unmarshal([]byte(v), &ref); err != nil || len(ref) != 1 {
+		return "", false
+	}
+	shortName, ok := ref["$envSecret"].(string)
+	if !ok || strings.TrimSpace(shortName) == "" {
+		return "", false
+	}
+	return shortName, true
+}

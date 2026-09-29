@@ -14,14 +14,14 @@ import (
 
 func TestUnmanagedFunction_Metadata(t *testing.T) {
 	resp := &function.MetadataResponse{}
-	NewSaaSUnmanagedFunction().Metadata(context.Background(), function.MetadataRequest{}, resp)
-	if resp.Name != "security_saas_unmanaged" {
-		t.Errorf("expected name %q, got %q", "security_saas_unmanaged", resp.Name)
+	NewAiSaasUnmanagedFunction().Metadata(context.Background(), function.MetadataRequest{}, resp)
+	if resp.Name != "ai_saas_unmanaged" {
+		t.Errorf("expected name %q, got %q", "ai_saas_unmanaged", resp.Name)
 	}
 }
 
 func TestUnmanagedFunction_BuildsTypedComponentWithSecret(t *testing.T) {
-	f := NewSaaSUnmanagedFunction()
+	f := NewAiSaasUnmanagedFunction()
 	config := types.ObjectValueMust(map[string]attr.Type{
 		"id":     types.StringType,
 		"secret": types.StringType,
@@ -38,8 +38,8 @@ func TestUnmanagedFunction_BuildsTypedComponentWithSecret(t *testing.T) {
 	}
 
 	attrs := resp.Result.Value().(types.Object).Attributes()
-	if got := attrs["type"].(types.String).ValueString(); got != "Security.SaaS.Unmanaged" {
-		t.Errorf("type = %q, want %q", got, "Security.SaaS.Unmanaged")
+	if got := attrs["type"].(types.String).ValueString(); got != "AI.SaaS.Unmanaged" {
+		t.Errorf("type = %q, want %q", got, "AI.SaaS.Unmanaged")
 	}
 	params := attrs["parameters"].(types.Map).Elements()
 	if got := params["secret"].(types.String).ValueString(); got != `{"$envSecret":"external-key"}` {
