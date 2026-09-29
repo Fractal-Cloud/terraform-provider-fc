@@ -36,5 +36,5 @@ jobs:
         uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          slug: Fractal-Cloud/terraform-provider-fractalcloud
+          slug: Fractal-Cloud/terraform-provider-fc
           files: ./coverage.out

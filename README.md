@@ -381,8 +381,8 @@ See the [`examples/`](examples/) directory for complete working configurations.
 ## Building the Provider
 
 ```sh
-git clone https://github.com/Fractal-Cloud/terraform-provider-fractalcloud.git
-cd terraform-provider-fractalcloud
+git clone https://github.com/Fractal-Cloud/terraform-provider-fc.git
+cd terraform-provider-fc
 make build
 ```
 
@@ -427,7 +427,7 @@ To report a security vulnerability, please see [SECURITY.md](SECURITY.md).
 
 This project is licensed under the GNU Affero General Public License v3.0 -- see the [LICENSE](LICENSE) file for details.
 
-[build-image]: https://github.com/Fractal-Cloud/terraform-provider-fractalcloud/actions/workflows/pr.yml/badge.svg
-[build-url]: https://github.com/Fractal-Cloud/terraform-provider-fractalcloud/actions/workflows/pr.yml
-[codecov-image]: https://codecov.io/gh/Fractal-Cloud/terraform-provider-fractalcloud/branch/main/graph/badge.svg
-[codecov-url]: https://codecov.io/gh/Fractal-Cloud/terraform-provider-fractalcloud
+[build-image]: https://github.com/Fractal-Cloud/terraform-provider-fc/actions/workflows/pr.yml/badge.svg
+[build-url]: https://github.com/Fractal-Cloud/terraform-provider-fc/actions/workflows/pr.yml
+[codecov-image]: https://codecov.io/gh/Fractal-Cloud/terraform-provider-fc/branch/main/graph/badge.svg
+[codecov-url]: https://codecov.io/gh/Fractal-Cloud/terraform-provider-fc

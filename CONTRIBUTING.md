@@ -26,7 +26,7 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 
 3. Add the upstream remote:
    ```sh
-   git remote add upstream https://github.com/Fractal-Cloud/terraform-provider-fractalcloud.git
+   git remote add upstream https://github.com/Fractal-Cloud/terraform-provider-fc.git
    ```
 
 4. Install dependencies:
@@ -63,7 +63,7 @@ make install
 
 ### Reporting Bugs
 
-Before creating a bug report, please search [existing issues](https://github.com/Fractal-Cloud/terraform-provider-fractalcloud/issues) to avoid duplicates. When filing a bug report, use the **Bug Report** issue template and include:
+Before creating a bug report, please search [existing issues](https://github.com/Fractal-Cloud/terraform-provider-fc/issues) to avoid duplicates. When filing a bug report, use the **Bug Report** issue template and include:
 
 - Terraform version (`terraform version`)
 - Provider version
@@ -171,7 +171,7 @@ Register the new function in `provider.go` under the `Functions()` method.
 Releases are managed by the maintainers using [GoReleaser](https://goreleaser.com/) and GitHub Actions. To trigger a release:
 
 1. Update `CHANGELOG.md` with the new version's changes.
-2. Create and push a tag: `git tag v0.1.0 && git push origin v0.1.0`.
+2. Create and push a tag: `git tag v2.0.1 && git push origin v2.0.1`.
 3. The release workflow builds and publishes binaries automatically.
 
 ## Questions?
