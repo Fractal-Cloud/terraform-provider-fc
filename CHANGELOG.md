@@ -15,6 +15,7 @@ BUG FIXES:
 
 * Releases include `terraform-provider-fc_<version>_manifest.json`, listed in the signed checksums. The Terraform Registry reads the protocol version (6.0) from it; without it the Registry assumes protocol 5, which this provider does not speak.
 * The install examples in the documentation constrain the provider to `~> 2.0`; they said `~> 0.1`, which matches no release.
+* `storage_caas_relational_dbms` documents that `engine_version` sets the version a cluster is created with; a running cluster changes version only through `extra_parameters.postgresqlVersion`, within its major (the agent behavior of fractal-cloud-agents#784).
 
 ## 2.0.0 (September 29, 2026)
 

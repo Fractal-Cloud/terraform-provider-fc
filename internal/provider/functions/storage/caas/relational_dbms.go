@@ -12,7 +12,8 @@ func NewStorageCaasRelationalDbmsFunction() function.Function {
 		ComponentType: "Storage.CaaS.RelationalDbms",
 		Summary:       "Creates a containerized Relational DBMS blueprint component",
 		Description: "Builds a Storage.CaaS.RelationalDbms component (PostgreSQL via CloudNativePG) on a container platform. " +
-			"age enables the Apache AGE graph extension.",
+			"engine_version is the version the cluster is created with; a running cluster changes version only through " +
+			"extra_parameters.postgresqlVersion, within its major. age enables the Apache AGE graph extension.",
 		Attributes: []spec.Attribute{
 			{Name: "engine_version", Key: "version", Kind: spec.String},
 			{Name: "age", Key: "age", Kind: spec.Bool},
