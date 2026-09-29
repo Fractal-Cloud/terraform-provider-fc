@@ -22,6 +22,12 @@ var _ basetypes.ObjectTypable = ConfigObjectType{}
 // Terraform with "attributes ... are required". Terraform supports optional
 // object attributes in type constraints; this type declares them, and
 // Terraform then fills omitted attributes with null before the call.
+//
+// Use it only as the type of a function's top-level object parameter.
+// terraform-plugin-go panics decoding a value in which a type with optional
+// attributes is nested, whether as a list element or as a null attribute,
+// so nested objects whose fields are optional are declared dynamic and
+// checked in Run instead (see LinksAttrType).
 type ConfigObjectType struct {
 	basetypes.ObjectType
 

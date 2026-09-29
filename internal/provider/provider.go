@@ -5,10 +5,12 @@ import (
 	"os"
 
 	"fractal.cloud/terraform-provider-fc/internal/client"
+	"fractal.cloud/terraform-provider-fc/internal/provider/functions/ai"
 	ai_saas "fractal.cloud/terraform-provider-fc/internal/provider/functions/ai/saas"
 	api_caas "fractal.cloud/terraform-provider-fc/internal/provider/functions/api_management/caas"
 	api_paas "fractal.cloud/terraform-provider-fc/internal/provider/functions/api_management/paas"
 	api_saas "fractal.cloud/terraform-provider-fc/internal/provider/functions/api_management/saas"
+	bd_caas "fractal.cloud/terraform-provider-fc/internal/provider/functions/bigdata/caas"
 	bd_paas "fractal.cloud/terraform-provider-fc/internal/provider/functions/bigdata/paas"
 	bd_saas "fractal.cloud/terraform-provider-fc/internal/provider/functions/bigdata/saas"
 	cw_caas "fractal.cloud/terraform-provider-fc/internal/provider/functions/custom_workloads/caas"
@@ -26,6 +28,7 @@ import (
 	obs_saas "fractal.cloud/terraform-provider-fc/internal/provider/functions/observability/saas"
 	"fractal.cloud/terraform-provider-fc/internal/provider/functions/secrets"
 	sec_caas "fractal.cloud/terraform-provider-fc/internal/provider/functions/security/caas"
+	sec_paas "fractal.cloud/terraform-provider-fc/internal/provider/functions/security/paas"
 	sec_saas "fractal.cloud/terraform-provider-fc/internal/provider/functions/security/saas"
 	st_caas "fractal.cloud/terraform-provider-fc/internal/provider/functions/storage/caas"
 	st_paas "fractal.cloud/terraform-provider-fc/internal/provider/functions/storage/paas"
@@ -224,6 +227,9 @@ func (p *fractalCloudProvider) Functions(_ context.Context) []func() function.Fu
 		st_paas.NewStoragePaasGraphDatabaseFunction,
 		st_caas.NewStorageCaasSearchFunction,
 		st_caas.NewStorageCaasSearchEntityFunction,
+		st_caas.NewStorageCaasRelationalDbmsFunction,
+		st_caas.NewStorageCaasRelationalDatabaseFunction,
+		st_caas.NewStorageCaasObjectStorageFunction,
 		st_saas.NewStorageSaasUnmanagedFunction,
 
 		// Messaging
@@ -239,6 +245,12 @@ func (p *fractalCloudProvider) Functions(_ context.Context) []func() function.Fu
 		bd_paas.NewBigdataPaasDataProcessingJobFunction,
 		bd_paas.NewBigdataPaasMlExperimentFunction,
 		bd_paas.NewBigdataPaasDatalakeFunction,
+		bd_caas.NewBigdataCaasDistributedDataProcessingFunction,
+		bd_caas.NewBigdataCaasComputeClusterFunction,
+		bd_caas.NewBigdataCaasDataProcessingJobFunction,
+		bd_caas.NewBigdataCaasMlExperimentFunction,
+		bd_caas.NewBigdataCaasDataCatalogFunction,
+		bd_caas.NewBigdataCaasDatalakeFunction,
 		bd_saas.NewBigdataSaasUnmanagedFunction,
 
 		// APIManagement
@@ -254,9 +266,11 @@ func (p *fractalCloudProvider) Functions(_ context.Context) []func() function.Fu
 
 		// Security
 		sec_caas.NewCaaSServiceMeshSecurityFunction,
+		sec_paas.NewIdentityProviderFunction,
 		sec_saas.NewSaaSUnmanagedFunction,
 
 		// AI
+		ai.NewAgenticPlatformFunction,
 		ai_saas.NewAiSaasUnmanagedFunction,
 	}
 }

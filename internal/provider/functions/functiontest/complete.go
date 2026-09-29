@@ -65,7 +65,13 @@ func Complete(t *testing.T, f function.Function, args []attr.Value) []attr.Value
 		if diags.HasError() {
 			t.Fatalf("completing config argument: %v", diags)
 		}
-		completed[i] = obj
+		// Terraform decodes the argument through the parameter's type, so the
+		// function receives a ConfigObjectValue, not a plain object.
+		typed, diags := configType.ValueFromObject(ctx, obj)
+		if diags.HasError() {
+			t.Fatalf("typing config argument: %v", diags)
+		}
+		completed[i] = typed
 	}
 	return completed
 }
