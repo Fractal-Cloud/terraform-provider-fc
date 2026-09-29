@@ -203,7 +203,7 @@ terraform {
   required_providers {
     fc = {
       source  = "registry.terraform.io/fractal-cloud/fc"
-      version = "~> 0.1.0"
+      version = "~> 2.0"
     }
   }
   required_version = ">= 1.1.0"

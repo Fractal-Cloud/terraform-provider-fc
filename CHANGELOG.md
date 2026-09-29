@@ -1,9 +1,20 @@
-## 2.0.1 (Unreleased)
+## 2.0.1 (September 29, 2026)
+
+BREAKING CHANGES:
+
+* The provider address is `registry.terraform.io/fractal-cloud/fc`. The Terraform Registry namespace is the GitHub organization, `Fractal-Cloud`; the `fractalcloud/fc` address used before could not be published. Set `source = "fractal-cloud/fc"` in `required_providers`. State written with the old address (from a local mirror or `dev_overrides`) must be moved once before the next plan:
+
+  ```
+  terraform state replace-provider registry.terraform.io/fractalcloud/fc registry.terraform.io/fractal-cloud/fc
+  terraform init
+  ```
+
+  A `dev_overrides` entry has to use the new address as its key.
 
 BUG FIXES:
 
-* The provider address is `registry.terraform.io/fractal-cloud/fc`. The Terraform Registry namespace is the GitHub organization, `Fractal-Cloud`; the `fractalcloud/fc` address used before could not be published. Update `required_providers` to `source = "fractal-cloud/fc"`.
 * Releases include `terraform-provider-fc_<version>_manifest.json`, listed in the signed checksums. The Terraform Registry reads the protocol version (6.0) from it; without it the Registry assumes protocol 5, which this provider does not speak.
+* The install examples in the documentation constrain the provider to `~> 2.0`; they said `~> 0.1`, which matches no release.
 
 ## 2.0.0 (September 29, 2026)
 
