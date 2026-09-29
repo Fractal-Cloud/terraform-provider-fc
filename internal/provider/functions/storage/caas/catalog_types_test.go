@@ -61,11 +61,11 @@ func TestStorageCaasNewFunctions_BuildCatalogTypes(t *testing.T) {
 	}
 }
 
-func TestStorageCaasRelationalDbms_WritesVersionUnderBothKeys(t *testing.T) {
+func TestStorageCaasRelationalDbms_WritesVersionAndAge(t *testing.T) {
 	c := ft.Component(t, ft.Run(t, NewStorageCaasRelationalDbmsFunction(), ft.Object(t, map[string]attr.Value{
 		"id":             types.StringValue("pg"),
 		"engine_version": types.StringValue("17.2"),
 		"age":            types.BoolValue(true),
 	})))
-	ft.ExpectParameters(t, c, map[string]string{"version": "17.2", "postgresqlVersion": "17.2", "age": "true"})
+	ft.ExpectParameters(t, c, map[string]string{"version": "17.2", "age": "true"})
 }

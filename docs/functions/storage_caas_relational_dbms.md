@@ -7,7 +7,7 @@ description: |-
 
 # function: storage_caas_relational_dbms
 
-Creates a `Storage.CaaS.RelationalDbms` component: a PostgreSQL cluster run by CloudNativePG on a container platform. `engine_version` is written as both `version` (the catalog key) and `postgresqlVersion` (the key the CloudNativePG agent reads).
+Creates a `Storage.CaaS.RelationalDbms` component: a PostgreSQL cluster run by CloudNativePG on a container platform.
 
 ## Example Usage
 
